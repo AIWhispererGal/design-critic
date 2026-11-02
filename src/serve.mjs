@@ -5,6 +5,7 @@ import path from 'node:path';
 import { OUT_ROOT, analyze, loadReport, mergedCss, buildPrompt, mergeJudge, writeReport } from './pipeline.mjs';
 import { renderWithCss, renderHtml } from './capture.mjs';
 import { redesign } from './judge.mjs';
+import { ENV_FILE } from './env.mjs';
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.jpg': 'image/jpeg', '.png': 'image/png', '.md': 'text/markdown; charset=utf-8', '.css': 'text/css', '.txt': 'text/plain' };
 
@@ -94,6 +95,6 @@ export function serve({ port = 4310 } = {}) {
       json(res, 500, { error: String(e.message || e) });
     }
   });
-  server.listen(port, () => console.error(`design-critic serving on http://localhost:${port}/  (reports in ${OUT_ROOT})`));
+  server.listen(port, () => console.error(`design-critic serving on http://localhost:${port}/  (reports in ${OUT_ROOT}; env file: ${ENV_FILE || 'none'}; judge: ${process.env.ANTHROPIC_API_KEY ? 'enabled' : 'off'})`));
   return server;
 }

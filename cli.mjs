@@ -6,6 +6,7 @@
 //   node cli.mjs mockup <reportDir> [--accept ...] [--viewport laptop|phone]
 //   node cli.mjs judge <reportDir>              (needs ANTHROPIC_API_KEY)
 //   node cli.mjs merge-judge <reportDir> <judge.json>
+import './src/env.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { analyze, loadReport, mergedCss, buildPrompt, mergeJudge, writeReport, OUT_ROOT } from './src/pipeline.mjs';
@@ -37,7 +38,7 @@ function pickIds(ev, decisions) {
       console.log(`Open with: node cli.mjs serve  → http://localhost:4310/out/${path.basename(r.outDir)}/report.html`);
       break;
     }
-    case 'serve': { const { serve } = await import('./src/serve.mjs'); serve({ port: +(flags.port || 4310) }); break; }
+    case 'serve': { const { serve } = await import('./src/serve.mjs'); serve({ port: +(flags.port || process.env.DC_PORT || 4310) }); break; }
     case 'prompt': {
       const dir = resolveDir(pos[0]); const { ev, decisions } = loadReport(dir);
       const d = pickIds(ev, decisions);

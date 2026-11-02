@@ -74,6 +74,10 @@ node cli.mjs merge-judge <report> <judge.json>
 
 ## Setup
 
+Copy `.env.example` to `.env` and fill in what you need. `ANTHROPIC_API_KEY` turns on the juror pass and
+full-redesign mockups; `DC_MODEL`, `DC_OUT` and `DC_PORT` are optional. Shell variables override the file,
+and `DC_ENV=/path/to/file` points at a different one. `.env` is git-ignored.
+
 Node 22+. Playwright with Chromium must be importable (`npm i playwright && npx playwright install chromium`
 if it isn't already on the machine).
 

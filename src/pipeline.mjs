@@ -1,4 +1,5 @@
 // pipeline.mjs — capture → rules → (judge | packet) → report
+import './env.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { capture } from './capture.mjs';
