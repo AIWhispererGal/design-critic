@@ -1,0 +1,86 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Nimbus — Build the future of work</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; transition: all .3s ease; }
+  :focus { outline: none; }
+  body { font-family: Inter, system-ui, sans-serif; background: #0b0b0b; color: #e5e7eb; }
+  nav { position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center; padding: 16px 48px; backdrop-filter: blur(12px); background: rgba(11,11,11,.6); border-bottom: 1px solid rgba(255,255,255,.08); }
+  nav a { color: #9ca3af; text-decoration: none; margin-left: 28px; font-size: 14px; }
+  .logo { font-weight: 700; background: linear-gradient(90deg,#8b5cf6,#3b82f6); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero { text-align: center; padding: 140px 24px 100px; max-width: 900px; margin: 0 auto; }
+  .eyebrow { display: inline-block; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: #a78bfa; border: 1px solid rgba(167,139,250,.4); border-radius: 9999px; padding: 6px 14px; margin-bottom: 24px; }
+  h1 { font-size: 64px; line-height: 1.1; font-weight: 700; letter-spacing: -.02em; }
+  h1 span { background: linear-gradient(90deg,#8b5cf6,#ec4899); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .sub { color: #9ca3af; font-size: 18px; margin: 24px auto 40px; max-width: 620px; }
+  .btn { display: inline-block; padding: 14px 28px; border-radius: 9999px; font-weight: 600; text-decoration: none; font-size: 15px; }
+  .btn-primary { background: linear-gradient(90deg,#7c3aed,#4f46e5); color: #fff; box-shadow: 0 10px 30px rgba(124,58,237,.35); }
+  .btn-ghost { border: 1px solid rgba(255,255,255,.15); color: #e5e7eb; margin-left: 12px; }
+  .mock { margin: 60px auto 0; max-width: 1000px; height: 420px; border-radius: 16px; background: linear-gradient(135deg, rgba(139,92,246,.25), rgba(59,130,246,.15)); border: 1px solid rgba(255,255,255,.1); box-shadow: 0 30px 80px rgba(0,0,0,.5); }
+  section { padding: 100px 48px; max-width: 1200px; margin: 0 auto; }
+  .label { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: #6b7280; margin-bottom: 12px; text-align: center; }
+  h2 { font-size: 40px; text-align: center; font-weight: 700; letter-spacing: -.02em; margin-bottom: 56px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .card { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 16px; padding: 32px; box-shadow: 0 4px 20px rgba(0,0,0,.1); backdrop-filter: blur(10px); }
+  .card:hover { transform: translateY(-4px); }
+  .icon { width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg,#8b5cf6,#3b82f6); display: flex; align-items: center; justify-content: center; margin-bottom: 20px; font-size: 20px; }
+  .card h3 { font-size: 20px; font-weight: 600; margin-bottom: 10px; }
+  .card p { color: #9ca3af; font-size: 15px; line-height: 1.6; }
+  .num { font-family: ui-monospace, monospace; color: #6b7280; font-size: 12px; margin-bottom: 8px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; text-align: center; }
+  .stat { padding: 36px; border-radius: 16px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.03); box-shadow: 0 4px 20px rgba(0,0,0,.1); }
+  .stat b { display: block; font-size: 48px; background: linear-gradient(90deg,#8b5cf6,#3b82f6); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .stat span { color: #6b7280; font-size: 13px; text-transform: uppercase; letter-spacing: .1em; }
+  .cta { text-align: center; border-radius: 24px; background: linear-gradient(135deg,#4c1d95,#1e3a8a); padding: 80px 40px; margin: 0 48px 100px; }
+  .cta h2 { margin-bottom: 20px; }
+  footer { border-top: 1px solid rgba(255,255,255,.08); padding: 48px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; color: #6b7280; font-size: 13px; }
+  footer h4 { color: #e5e7eb; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 14px; }
+  footer a { display: block; color: #6b7280; text-decoration: none; margin-bottom: 8px; }
+  .meta { color: #4b5563; font-size: 11px; }
+  .reveal { animation: up .8s ease both; }
+  @keyframes up { from { opacity: 0; transform: translateY(20px); } }
+  .wide { width: 1280px; height: 80px; background: rgba(255,255,255,.03); margin: 0 auto; }
+</style>
+</head>
+<body>
+<nav><span class="logo">Nimbus</span><div><a href="#">Features</a><a href="#">Pricing</a><a href="#">Docs</a><a href="#" class="btn btn-primary" style="padding:10px 20px">Get started →</a></div></nav>
+<header class="hero reveal">
+  <div class="eyebrow">✨ Now in public beta</div>
+  <h1>Build the future of <span>work</span></h1>
+  <p class="sub">Nimbus is the all-in-one platform that empowers teams to unlock seamless collaboration and supercharge productivity with cutting-edge AI.</p>
+  <a class="btn btn-primary" href="#">Get started →</a><a class="btn btn-ghost" href="#">Learn more</a>
+  <div class="mock"></div>
+</header>
+<section>
+  <div class="label">Features</div>
+  <h2>Everything you need to ship faster</h2>
+  <div class="grid">
+    <div class="card reveal"><div class="num">01</div><div class="icon">⚡</div><h3>Lightning fast</h3><p>Experience blazing performance with our next-gen infrastructure built for scale.</p></div>
+    <div class="card reveal"><div class="num">02</div><div class="icon">🔒</div><h3>Secure by default</h3><p>Enterprise-grade security that keeps your data safe, so you can focus on what matters.</p></div>
+    <div class="card reveal"><div class="num">03</div><div class="icon">🚀</div><h3>Scale effortlessly</h3><p>From startup to enterprise, Nimbus grows with you without missing a beat.</p></div>
+  </div>
+</section>
+<section>
+  <div class="label">By the numbers</div>
+  <h2>Trusted by teams worldwide</h2>
+  <div class="stats">
+    <div class="stat"><b>10x</b><span>Faster delivery</span></div>
+    <div class="stat"><b>99.9%</b><span>Uptime</span></div>
+    <div class="stat"><b>50k+</b><span>Happy teams</span></div>
+  </div>
+  <p class="meta" style="text-align:center;margin-top:24px">Updated weekly · Independently verified · Global</p>
+</section>
+<div class="wide"></div>
+<div class="cta"><h2>Ready to elevate your workflow?</h2><p class="sub">Join thousands of teams already building the future with Nimbus.</p><a class="btn btn-primary" href="#">Start free trial →</a></div>
+<footer>
+  <div><h4>Product</h4><a href="#">Features</a><a href="#">Pricing</a><a href="#">Changelog</a></div>
+  <div><h4>Company</h4><a href="#">About</a><a href="#">Blog</a><a href="#">Careers</a></div>
+  <div><h4>Resources</h4><a href="#">Docs</a><a href="#">Community</a><a href="#">Support</a></div>
+  <div><h4>Legal</h4><a href="#">Privacy</a><a href="#">Terms</a><button aria-hidden="false" style="background:none;border:0;color:#6b7280;cursor:pointer"><svg width="16" height="16"><circle cx="8" cy="8" r="7" fill="#6b7280"/></svg></button></div>
+</footer>
+</body>
+</html>

@@ -1,0 +1,43 @@
+{
+  "name": "design-critic",
+  "version": "0.1.0",
+  "description": "Measure a website's design on 16 parameters, accept/veto suggestions, hand off a prompt or a mockup.",
+  "scripts": {
+    "analyze": "node cli.mjs analyze",
+    "serve": "node cli.mjs serve",
+    "test:fixture": "node cli.mjs analyze fixtures/slop.html --out out/slop",
+    "test:ui": "node test/ui-smoke.mjs"
+  },
+  "keywords": [
+    "design",
+    "ux",
+    "accessibility",
+    "wcag",
+    "ai-slop",
+    "design-review",
+    "playwright",
+    "lint"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0",
+    "axe-core": "^4.10.3",
+    "playwright": "^1.49.0"
+  },
+  "type": "module",
+  "bin": {
+    "design-critic": "./cli.mjs"
+  },
+  "files": [
+    "cli.mjs",
+    "src/",
+    "fixtures/slop.html",
+    "README.md",
+    "RESEARCH.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  }
+}
