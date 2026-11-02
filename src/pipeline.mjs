@@ -7,6 +7,7 @@ import { evaluate } from './rules.mjs';
 import { judge, buildPacket, mergeJudge } from './judge.mjs';
 import { writeReport } from './report.mjs';
 import { buildPrompt } from './prompt.mjs';
+import { loadProfile, describeProfile } from './taste.mjs';
 
 export const OUT_ROOT = process.env.DC_OUT || path.resolve(process.cwd(), 'out');
 
@@ -26,7 +27,9 @@ export async function analyze(target, { outDir, runJudge = false, log = console.
     if (judgeStatus.result) ev = mergeJudge(ev, { ...judgeStatus.result, model: judgeStatus.model });
     else if (!judgeStatus.ran) judgeStatus.reason = judgeStatus.reason;
   }
-  const reportPath = writeReport(outDir, cap, ev, { judgeStatus });
+  const profile = loadProfile(OUT_ROOT);
+  if (profile) ev.profileSummary = describeProfile(profile);
+  const reportPath = writeReport(outDir, cap, ev, { judgeStatus, profile });
   return { outDir, reportPath, evaluation: ev, capture: cap, judgeStatus };
 }
 

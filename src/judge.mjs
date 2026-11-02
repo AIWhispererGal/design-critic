@@ -34,6 +34,7 @@ export function buildPacket(capture, evaluation, outDir) {
   lines.push(`## Measurements (laptop 1440 unless noted)`);
   const M = (vps.find(v => v.name === 'laptop') || vps[0]).metrics;
   lines.push('```json\n' + JSON.stringify({ title: M.copy.title, headline: M.hero, nav: M.nav, fonts: M.fonts, bodyBg: M.bodyBg, accents: M.accents, distinctSectionGrounds: M.distinctSectionGrounds, screens: M.screens, images: { count: M.images.count, videos: M.images.videos, canvases: M.images.canvases }, tells: evaluation.tells, headings: M.copy.headlineTexts, buttons: M.copy.buttonTexts, sectionGaps: M.sectionGaps, emptyScreens: M.emptyScreens, phone: vps.find(v => v.name === 'phone') ? { horizontalScroll: vps.find(v => v.name === 'phone').metrics.horizontalScroll, heroLines: vps.find(v => v.name === 'phone').metrics.hero?.lines } : null }, null, 1) + '\n```\n');
+  if (evaluation.profileSummary) lines.push(`## The owner's known preferences\n${evaluation.profileSummary}\nWeigh suggestions accordingly; do not propose things they usually veto unless you argue why this page is different.\n`);
   lines.push(`## Deterministic findings already made (do not repeat)`);
   for (const f of evaluation.findings) lines.push(`- [${f.severity}] ${f.param}: ${f.title}`);
   lines.push(`\n## Screenshots\n${vps.map(v => `- ${v.name} ${v.width}×${v.height}: shots/${v.name}-first.jpg (first screen), shots/${v.name}-full.jpg (full page)`).join('\n')}\n`);

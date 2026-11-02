@@ -273,7 +273,7 @@ function collectMetrics(opts) {
   if (h1) {
     selectors.h1 = sel(h1);
     const cs = getComputedStyle(h1), r = h1.getBoundingClientRect();
-    const centred = cs.textAlign === 'center' || Math.abs((r.left + r.width / 2) - vw / 2) < 24 && r.width < vw * 0.9;
+    const centred = cs.textAlign === 'center' || (Math.abs((r.left + r.width / 2) - vw / 2) < 24 && r.width < vw * 0.7 && r.left > vw * 0.12);
     const words = (h1.innerText || '').trim().split(/\s+/).length;
     const lh = px(cs.lineHeight) || px(cs.fontSize) * 1.2;
     hero = { text: (h1.innerText || '').trim().slice(0, 160), words, size: px(cs.fontSize), sizeVw: +(px(cs.fontSize) / vw * 100).toFixed(2), lines: Math.max(1, Math.round(r.height / lh)), centred, y: Math.round(r.top + window.scrollY), buttonsBelow: aboveFoldButtons.filter(b => b.y > r.top + window.scrollY).length, weight: cs.fontWeight, family: cs.fontFamily.split(',')[0].replace(/["']/g, '') };
@@ -411,6 +411,14 @@ async function runAxe(page) {
   }
 }
 
+async function dismissBanners(page) {
+  await page.evaluate(() => {
+    const btn = Array.from(document.querySelectorAll('button, a')).find(b => /^(accept|accept all|accept all cookies|i agree|agree|allow all|got it|ok|okay)$/i.test((b.innerText || '').trim()));
+    if (btn) btn.click();
+  }).catch(() => {});
+  await page.waitForTimeout(300);
+}
+
 async function settle(page) {
   // Scroll through to trigger lazy loading and scroll-reveal animations, then return to top.
   await page.evaluate(async () => {
@@ -448,11 +456,7 @@ export async function capture(target, { outDir, viewports = VIEWPORTS, timeout =
         continue;
       }
       const loadMs = Date.now() - t0;
-      // dismiss obvious cookie banners so they don't pollute the measurement
-      await page.evaluate(() => {
-        const btn = Array.from(document.querySelectorAll('button, a')).find(b => /^(accept|accept all|i agree|agree|allow all|got it|ok)$/i.test((b.innerText || '').trim()));
-        if (btn) btn.click();
-      }).catch(() => {});
+      await dismissBanners(page);
       await settle(page);
       const shotFirst = path.join('shots', `${vp.name}-first.jpg`);
       const shotFull = path.join('shots', `${vp.name}-full.jpg`);
@@ -486,6 +490,7 @@ export async function renderWithCss(snapshotPath, css, { outPath, width = 1440, 
     const page = await ctx.newPage();
     await page.goto(pathToFileURL(path.resolve(snapshotPath)).href, { waitUntil: 'load', timeout: 30000 }).catch(() => {});
     await page.waitForTimeout(500);
+    await dismissBanners(page);
     if (css) await page.addStyleTag({ content: css });
     await page.waitForTimeout(300);
     await settle(page);

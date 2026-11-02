@@ -30,6 +30,7 @@ export function buildPrompt(evaluation, { accepted = [], vetoed = [], notes = {}
     L.push(`\n## Vetoed (do NOT do these)`);
     for (const f of vet) L.push(`- ${f.title}${notes[f.id] ? ` — owner: ${notes[f.id]}` : ''}`);
   }
+  if (evaluation.profileSummary) L.push(`\n## Owner's preferences (learned from past decisions)\n${evaluation.profileSummary}\nTreat "usually vetoes" items as vetoed here too unless listed under Accepted changes.`);
   L.push(`\n## Quality floor (always)\n- WCAG 2.2 AA contrast; visible :focus-visible; one h1; landmarks; lang attribute; zoom not disabled.\n- Responsive at 390, 768, 1440, 1920: no horizontal overflow; headlines ≤2 lines on desktop, ≤3 on phone; body ≥16px.\n- prefers-reduced-motion respected; no transition: all.\n- Line length 45–75 characters for running text.`);
   L.push(`\n## Process\n1. Before coding, write a 6-line design plan: palette (4–6 named hex values, one job each), typefaces and roles, layout concept in one sentence, the one place you will spend boldness.\n2. Check the plan against the vetoes and against the generic defaults (purple gradients, Inter-for-everything, icon-topped card rows, tracked-caps eyebrows, pill badges, 01/02/03 numbering, centred headline + two buttons + screenshot). If any part is a default rather than a choice for this subject, change it and say why.\n3. Implement. Then screenshot at 390 and 1440 and fix the top three problems you see.\n4. Report what changed, per accepted item, and anything you deliberately left alone.`);
   return L.join('\n');

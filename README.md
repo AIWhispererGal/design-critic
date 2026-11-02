@@ -54,10 +54,18 @@ Every finding has: **Now** (the measurement), **Change** (what to do), **Why** (
 5. **Generate coding-AI prompt**: a brief built only from accepted items, with the vetoes listed as
    "do not", the measured current state, a quality floor, and a plan-then-build process. Copy or download.
 6. **Mock up accepted changes**: the snapshot is re-rendered at laptop and phone widths with the accepted
-   findings' CSS applied; before/after side by side. **Mock up full redesign** (needs a key): a standalone
+   findings' CSS applied, shown as a drag-to-compare before/after slider with the percentage of pixels that
+   changed and the list of which accepted items were (and were not) expressible as CSS. **Mock up full redesign** (needs a key): a standalone
    HTML rebuild from the page's real content, honouring accepts and vetoes.
-7. **Export decisions**: a taste-profile JSON. Designers agree with each other only weakly
-   (DesignPref, alpha 0.25), so your vetoes are the signal that makes the next review yours.
+7. **Learning from decisions.** Every accept/veto is an observation. `node cli.mjs taste` builds
+   `out/taste-profile.json`: accept rate per rule and per parameter, and which page/finding features shift
+   your accept rate away from your base rate (dark pages, phone-only findings, juror taste calls, severity…).
+   Rules you decide the same way at least twice are marked "you usually accept/veto this" on new reports,
+   with an **Apply my usual decisions** button; the prompt and the juror brief carry a preferences section.
+   `node cli.mjs taste --explain` asks Claude for plain-language hypotheses about what the yes/nos are
+   capturing, each with its evidence and what would disprove it; you `--confirm` or `--reject` each, and only
+   confirmed hypotheses are ever written into prompts. Designers agree with each other only weakly
+   (DesignPref, alpha 0.25), so this is the part that makes the next review yours.
 
 ## CLI
 
@@ -68,6 +76,7 @@ node cli.mjs prompt <report> [--all | --p01 | --accept F001,F002] [--veto F003]
 node cli.mjs mockup <report> [--all | --p01 | --accept ...] [--viewport phone] [--full]
 node cli.mjs judge <report>                   # needs ANTHROPIC_API_KEY (model: DC_MODEL, default claude-opus-5-5)
 node cli.mjs merge-judge <report> <judge.json>
+node cli.mjs taste [--explain] [--confirm id | --reject id] [--json]
 ```
 
 `<report>` is a directory under `out/` (or any path containing `evaluation.json`).
@@ -108,6 +117,9 @@ src/prompt.mjs     hand-off prompt builder (isomorphic; also runs in the report)
 src/report.mjs     report.html generator
 src/serve.mjs      local server + API (/api/analyze, /decisions, /mockup, /redesign, /judge, /prompt)
 src/pipeline.mjs   glue
+src/taste.mjs      decisions → profile (rates, lifts, hypotheses); applied to reports, prompts, juror brief
+src/diff.mjs       pixel diff between two screenshots (for the mockup readout)
+src/env.mjs        .env loader
 fixtures/slop.html a deliberately generic page for testing (scores 5.7; accessibility, AI-look, responsive all 0)
 test/ui-smoke.mjs  drives the report UI end to end against a running server
 RESEARCH.md        survey of existing tools, the design literature, and AI-judge reliability

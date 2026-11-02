@@ -3,13 +3,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PARAMETERS } from './rules.mjs';
+import { describeProfile } from './taste.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const promptSource = fs.readFileSync(path.join(here, 'prompt.mjs'), 'utf8').replace(/^export /gm, '');
 
-export function writeReport(outDir, capture, evaluation, { judgeStatus } = {}) {
+export function writeReport(outDir, capture, evaluation, { judgeStatus, profile } = {}) {
   const vps = capture.viewports.filter(v => v.metrics && v.shots);
-  const data = { reportId: path.basename(outDir), url: capture.url, capturedAt: capture.capturedAt, parameters: PARAMETERS, evaluation, shots: vps.map(v => ({ name: v.name, width: v.width, height: v.height, first: v.shots.first, full: v.shots.full })), judgeStatus: judgeStatus || null };
+  if (profile && profile.usual) for (const f of evaluation.findings) { const u = profile.usual[f.rule]; const r = profile.rules?.[f.rule]; if (u) f.usual = { decision: u, n: r?.n, rate: r?.rate }; }
+  const data = { profileSummary: profile ? describeProfile(profile) : '', reportId: path.basename(outDir), url: capture.url, capturedAt: capture.capturedAt, parameters: PARAMETERS, evaluation, shots: vps.map(v => ({ name: v.name, width: v.width, height: v.height, first: v.shots.first, full: v.shots.full })), judgeStatus: judgeStatus || null };
   const html = template(data);
   fs.writeFileSync(path.join(outDir, 'report.html'), html);
   fs.writeFileSync(path.join(outDir, 'evaluation.json'), JSON.stringify(evaluation, null, 1));
@@ -32,6 +34,7 @@ function template(data) {
         <span class="param">${esc(data.parameters.find(p => p.id === f.param)?.name || f.param)}</span>
         ${f.fromJudge ? `<span class="tag">juror${f.taste ? ' · taste' : ''}</span>` : ''}
         ${f.viewports && f.viewports[0] !== 'laptop' ? `<span class="tag">${f.viewports.join(', ')}</span>` : ''}
+        ${f.usual ? `<span class="tag usual-${f.usual.decision}" title="From your past decisions on this rule">you usually ${f.usual.decision === 'accepted' ? 'accept' : 'veto'} this (${Math.round(f.usual.rate * 100)}%, n=${f.usual.n})</span>` : ''}
         <span class="decide"><button class="accept" data-act="accept" title="Accept this suggestion">Accept</button><button class="veto" data-act="veto" title="Veto: do not do this">Veto</button><button class="undo" data-act="undo" title="Clear decision">Undo</button></span>
       </div>
       <h3>${esc(f.title)}</h3>
@@ -110,6 +113,18 @@ textarea#prompt{width:100%;min-height:360px;font:13px/1.5 ui-monospace,Menlo,Con
 .mock{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px;margin-top:16px}
 .status{color:var(--ink-2);font-size:.9rem;min-height:1.4em}
 .hidden{display:none}
+.tag.usual-accepted{color:var(--accept)}.tag.usual-vetoed{color:var(--veto)}
+.cmp{position:relative;overflow:hidden;border:1px solid var(--line);user-select:none}
+.cmp img{display:block;width:100%;height:auto}
+.cmp .after{position:absolute;inset:0;width:100%}
+.cmp .before{position:absolute;inset:0;width:100%;clip-path:inset(0 var(--cut,50%) 0 0)}
+.cmp .handle{position:absolute;top:0;bottom:0;left:50%;width:2px;background:var(--ink);pointer-events:none}
+.cmp .handle::after{content:'◂ ▸';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--ink);color:#fff;font-size:11px;padding:4px 6px;white-space:nowrap}
+.cmp input[type=range]{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:ew-resize}
+.cmp .lbl{position:absolute;top:8px;font-size:11px;background:rgba(255,255,255,.85);color:var(--ink);padding:2px 6px;pointer-events:none}
+.cmp .lbl.l{left:8px}.cmp .lbl.r{right:8px}
+.mock-note{grid-column:1/-1}
+.mock-note ul{margin:.25rem 0 0;padding-left:1.2rem}
 @media (max-width:600px){li.score{grid-template-columns:1fr 3ch;}li.score .bar{grid-column:1/-1}dl{grid-template-columns:1fr}.decide{margin-left:0;width:100%}}
 </style>
 </head>
@@ -133,6 +148,7 @@ ${judgeBlock}
   <div class="toolbar">
     <select id="filter-param"><option value="">All parameters</option>${data.parameters.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select>
     <select id="filter-sev"><option value="">All severities</option><option value="P0">P0 blocking</option><option value="P1">P1 major</option><option value="P2">P2 minor</option><option value="P3">P3 polish</option></select>
+    <button id="apply-usual" title="Accept/veto every finding the way you usually decide this rule">Apply my usual decisions</button>
     <button id="accept-all-p01">Accept all P0+P1</button>
     <button id="accept-all">Accept all</button>
     <button id="clear-all">Clear decisions</button>
@@ -155,6 +171,12 @@ ${judgeBlock}
   <p class="status" id="status"></p>
   <textarea id="prompt" placeholder="Your prompt appears here after you accept at least one suggestion and press Generate."></textarea>
   <div class="mock" id="mock"></div>
+</section>
+
+<section id="taste">
+  <h2>What your decisions say</h2>
+  <p class="muted" id="taste-summary">${esc(data.profileSummary || 'No decisions recorded yet. Accept and veto a few suggestions, here and on other reports, and this fills in.')}</p>
+  <p class="muted">Rule-level accept rates come from every <code>decisions.json</code> under <code>out/</code>. To get hypotheses about what the yes/nos capture, run <code>node cli.mjs taste --explain</code> (needs a key), then confirm or reject each one; only confirmed hypotheses are written into prompts and the juror brief.</p>
 </section>
 <footer style="padding:40px 0;color:var(--ink-2);font-size:.85rem">design-critic · deterministic measurements + optional juror pass. Scores are a diagnostic, not a verdict; designers themselves agree only weakly on taste.</footer>
 </div>
@@ -189,7 +211,12 @@ function decide(id, act) {
   save();
 }
 document.querySelector('ol.findings').addEventListener('click', e => { const b = e.target.closest('button[data-act]'); if (!b) return; decide(b.closest('li').dataset.id, b.dataset.act); });
-document.querySelector('ol.findings').addEventListener('change', e => { const i = e.target.closest('input[data-note]'); if (!i) return; state.notes[i.dataset.note] = i.value; save(); });
+let noteTimer; document.querySelector('ol.findings').addEventListener('input', e => { const i = e.target.closest('input[data-note]'); if (!i) return; state.notes[i.dataset.note] = i.value; clearTimeout(noteTimer); noteTimer = setTimeout(save, 400); });
+document.getElementById('apply-usual').onclick = () => {
+  let n = 0;
+  for (const f of E.findings) { if (!f.usual) continue; if (state.accepted.includes(f.id) || state.vetoed.includes(f.id)) continue; (f.usual.decision === 'accepted' ? state.accepted : state.vetoed).push(f.id); n++; }
+  save(); status(n ? 'Applied your usual decision to ' + n + ' finding(s).' : 'No undecided findings have a usual decision yet.');
+};
 document.getElementById('accept-all-p01').onclick = () => { for (const li of items) if (['P0','P1'].includes(li.dataset.sev) && !state.vetoed.includes(li.dataset.id) && !state.accepted.includes(li.dataset.id)) state.accepted.push(li.dataset.id); save(); };
 document.getElementById('accept-all').onclick = () => { for (const li of items) if (!state.vetoed.includes(li.dataset.id) && !state.accepted.includes(li.dataset.id)) state.accepted.push(li.dataset.id); save(); };
 document.getElementById('clear-all').onclick = () => { state = { accepted: [], vetoed: [], notes: {} }; save(); };
@@ -220,8 +247,17 @@ async function mock(kind) {
     const r = await fetch(kind === 'css' ? '/api/mockup' : '/api/redesign', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ report: DATA.reportId, accepted: state.accepted, vetoed: state.vetoed, notes: state.notes }) });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || r.statusText);
-    for (const s of j.shots) box.insertAdjacentHTML('beforeend', '<figure><img src="' + s.src + '?t=' + Date.now() + '" alt="' + s.label + '"><figcaption>' + s.label + '</figcaption></figure>');
-    if (j.note) box.insertAdjacentHTML('beforeend', '<p class="muted" style="grid-column:1/-1">' + j.note + '</p>');
+    const pairs = j.pairs || (j.shots ? j.shots.reduce((a, s, i, arr) => (i % 2 === 0 ? a.concat([{ label: s.label.split(' ·')[0], before: s.src, after: arr[i + 1] && arr[i + 1].src }]) : a), []) : []);
+    for (const p of pairs) {
+      const id = 'cmp' + Math.random().toString(36).slice(2, 7);
+      box.insertAdjacentHTML('beforeend', '<figure' + (p.width && p.width < 600 ? ' style="max-width:' + Math.round(p.width * 0.9) + 'px"' : '') + '><div class="cmp" id="' + id + '"><img class="after" src="' + p.after + '?t=' + Date.now() + '" alt="after"><img class="before" src="' + p.before + '?t=' + Date.now() + '" alt="before"><div class="handle"></div><span class="lbl l">before</span><span class="lbl r">after</span><input type="range" min="0" max="100" value="50" aria-label="Compare before and after"></div><figcaption>' + p.label + (p.changedPct != null ? ' · ' + p.changedPct + '% of pixels changed' : '') + ' · drag to compare</figcaption></figure>');
+      const el = document.getElementById(id); const rng = el.querySelector('input'); const set = v => { el.style.setProperty('--cut', (100 - v) + '%'); el.querySelector('.handle').style.left = v + '%'; };
+      rng.addEventListener('input', () => set(rng.value)); set(50);
+      // keep the box the height of the "after" image so the clipped "before" overlays it exactly
+      el.querySelector('.after').addEventListener('load', e => { el.style.height = e.target.getBoundingClientRect().height + 'px'; el.querySelector('.after').style.position = 'static'; });
+    }
+    if (j.applied) box.insertAdjacentHTML('beforeend', '<div class="mock-note muted"><b>Applied as CSS (' + j.applied.length + '):</b><ul>' + j.applied.map(a => '<li>' + a.title + '</li>').join('') + '</ul>' + (j.notApplied && j.notApplied.length ? '<b>Accepted but not mockable as CSS (' + j.notApplied.length + '), they need code or content:</b><ul>' + j.notApplied.map(a => '<li>' + a.title + '</li>').join('') + '</ul>' : '') + '</div>');
+    if (j.note) box.insertAdjacentHTML('beforeend', '<p class="muted mock-note">' + j.note + '</p>');
     status(j.message || 'Done.');
   } catch (e) { status('Mockup failed: ' + e.message); }
 }

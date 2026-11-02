@@ -6,6 +6,8 @@ import { OUT_ROOT, analyze, loadReport, mergedCss, buildPrompt, mergeJudge, writ
 import { renderWithCss, renderHtml } from './capture.mjs';
 import { redesign } from './judge.mjs';
 import { ENV_FILE } from './env.mjs';
+import { diffImages } from './diff.mjs';
+import { refreshProfile, loadProfile, describeProfile } from './taste.mjs';
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.jpg': 'image/jpeg', '.png': 'image/png', '.md': 'text/markdown; charset=utf-8', '.css': 'text/css', '.txt': 'text/plain' };
 
@@ -36,7 +38,12 @@ export function serve({ port = 4310 } = {}) {
       if (u.pathname === '/api/decisions' && req.method === 'POST') {
         const b = await body(req); const dir = safeDir(b.report);
         fs.writeFileSync(path.join(dir, 'decisions.json'), JSON.stringify({ accepted: b.accepted || [], vetoed: b.vetoed || [], notes: b.notes || {}, savedAt: new Date().toISOString() }, null, 1));
-        return json(res, 200, { ok: true });
+        const profile = refreshProfile(OUT_ROOT);
+        return json(res, 200, { ok: true, profile: { observations: profile.observations, reports: profile.reports, usual: profile.usual, summary: describeProfile(profile) } });
+      }
+      if (u.pathname === '/api/taste') {
+        const profile = loadProfile(OUT_ROOT) || refreshProfile(OUT_ROOT);
+        return json(res, 200, { profile, summary: describeProfile(profile) });
       }
       if (u.pathname === '/api/prompt' && req.method === 'POST') {
         const b = await body(req); const dir = safeDir(b.report); const { ev } = loadReport(dir);
@@ -47,15 +54,17 @@ export function serve({ port = 4310 } = {}) {
         const css = `:root{--dc-accent:#1f4e5f}\n` + mergedCss(ev, b.accepted || []);
         fs.writeFileSync(path.join(dir, 'mockup-accepted.css'), css);
         const snap = path.join(dir, 'snapshot.html');
-        const shots = [];
+        const pairs = [];
         for (const vp of [{ name: 'laptop', width: 1440, height: 900 }, { name: 'phone', width: 390, height: 844, mobile: true }]) {
           const before = path.join(dir, 'shots', `${vp.name}-first.jpg`);
           const after = path.join(dir, 'shots', `mock-${vp.name}.jpg`);
           await renderWithCss(snap, css, { outPath: after, width: vp.width, height: vp.height, mobile: !!vp.mobile });
-          shots.push({ src: `/out/${path.basename(dir)}/shots/${vp.name}-first.jpg`, label: `${vp.name} · before` }, { src: `/out/${path.basename(dir)}/shots/mock-${vp.name}.jpg`, label: `${vp.name} · after (accepted changes as CSS)` });
+          const d = fs.existsSync(before) ? await diffImages(before, after) : { changedPct: null };
+          pairs.push({ label: vp.name, width: vp.width, height: vp.height, before: `/out/${path.basename(dir)}/shots/${vp.name}-first.jpg`, after: `/out/${path.basename(dir)}/shots/mock-${vp.name}.jpg`, changedPct: d.changedPct });
         }
-        const patched = ev.findings.filter(f => (b.accepted || []).includes(f.id) && f.cssPatch).length;
-        return json(res, 200, { shots, message: `Rendered ${patched} of ${(b.accepted || []).length} accepted changes (the rest have no CSS approximation; they need a code change or content).`, note: 'CSS-override mockups show direction, not finish: they remove tells and fix measurable faults but cannot add imagery or an idea. Use the prompt for the real change.' });
+        const applied = ev.findings.filter(f => (b.accepted || []).includes(f.id) && f.cssPatch).map(f => ({ id: f.id, title: f.title }));
+        const notApplied = ev.findings.filter(f => (b.accepted || []).includes(f.id) && !f.cssPatch).map(f => ({ id: f.id, title: f.title }));
+        return json(res, 200, { pairs, applied, notApplied, message: `Rendered ${applied.length} of ${(b.accepted || []).length} accepted changes as CSS.`, note: 'CSS-override mockups show direction, not finish: they remove tells and fix measurable faults but cannot add imagery, copy or an idea. Use the prompt for the real change.' });
       }
       if (u.pathname === '/api/redesign' && req.method === 'POST') {
         const b = await body(req); const dir = safeDir(b.report); const { ev } = loadReport(dir);

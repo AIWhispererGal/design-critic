@@ -6,16 +6,18 @@
 //   node cli.mjs mockup <reportDir> [--accept ...] [--viewport laptop|phone]
 //   node cli.mjs judge <reportDir>              (needs ANTHROPIC_API_KEY)
 //   node cli.mjs merge-judge <reportDir> <judge.json>
+//   node cli.mjs taste [--explain] [--confirm id | --reject id] [--json]
 import './src/env.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { analyze, loadReport, mergedCss, buildPrompt, mergeJudge, writeReport, OUT_ROOT } from './src/pipeline.mjs';
 import { renderWithCss } from './src/capture.mjs';
+import { refreshProfile, loadProfile, describeProfile, explainProfile, setHypothesis } from './src/taste.mjs';
 
 const [, , cmd, ...rest] = process.argv;
 const flags = {}; const pos = [];
 for (let i = 0; i < rest.length; i++) { if (rest[i].startsWith('--')) { const k = rest[i].slice(2); const v = rest[i + 1] && !rest[i + 1].startsWith('--') ? rest[++i] : true; flags[k] = v; } else pos.push(rest[i]); }
-const KNOWN = { analyze: ['out', 'judge'], serve: ['port'], prompt: ['accept', 'veto', 'all', 'p01'], mockup: ['accept', 'veto', 'all', 'p01', 'viewport', 'full'], judge: [], 'merge-judge': [] };
+const KNOWN = { analyze: ['out', 'judge'], serve: ['port'], prompt: ['accept', 'veto', 'all', 'p01'], mockup: ['accept', 'veto', 'all', 'p01', 'viewport', 'full'], judge: [], 'merge-judge': [], taste: ['explain', 'confirm', 'reject', 'json'] };
 for (const k of Object.keys(flags)) if (KNOWN[cmd] && !KNOWN[cmd].includes(k)) console.error(`warning: --${k} is not used by "${cmd}"${k === 'judge' ? ' (put --judge on "analyze", or run: node cli.mjs judge <report>)' : ''}`);
 const resolveDir = d => fs.existsSync(path.join(d, 'evaluation.json')) ? d : path.join(OUT_ROOT, d);
 
@@ -68,7 +70,7 @@ function pickIds(ev, decisions) {
       const js = await judge(cap, ev, dir, { log: console.error });
       if (!js.result) { console.error(js.reason || js.error); process.exit(1); }
       const merged = mergeJudge(ev, { ...js.result, model: js.model });
-      writeReport(dir, cap, merged, { judgeStatus: js });
+      writeReport(dir, cap, merged, { judgeStatus: js, profile: loadProfile(OUT_ROOT) });
       console.log(`Judge merged. Overall now ${merged.overall}/10. Concept: ${merged.judge.concept}`);
       break;
     }
@@ -76,8 +78,19 @@ function pickIds(ev, decisions) {
       const dir = resolveDir(pos[0]); const { cap, ev } = loadReport(dir);
       const j = JSON.parse(fs.readFileSync(pos[1], 'utf8'));
       const merged = mergeJudge(ev, { ...j, model: j.model || 'external reviewer' });
-      writeReport(dir, cap, merged, { judgeStatus: { ran: true, model: 'external' } });
+      writeReport(dir, cap, merged, { judgeStatus: { ran: true, model: 'external' }, profile: loadProfile(OUT_ROOT) });
       console.log(`Merged. Overall now ${merged.overall}/10.`);
+      break;
+    }
+    case 'taste': {
+      if (flags.confirm || flags.reject) { const h = setHypothesis(OUT_ROOT, flags.confirm || flags.reject, flags.confirm ? 'confirmed' : 'rejected'); console.log(`${h.status}: ${h.statement}`); break; }
+      const profile = flags.explain ? await explainProfile(OUT_ROOT, { log: console.error }) : refreshProfile(OUT_ROOT);
+      if (flags.json) { console.log(JSON.stringify(profile, null, 1)); break; }
+      console.log(describeProfile(profile) || 'No decisions yet. Accept/veto findings in a report (through `serve`) and run this again.');
+      const hs = profile.hypotheses || [];
+      if (hs.length) { console.log('\nHypotheses about what your decisions capture:'); for (const h of hs) console.log(`  [${h.id}] ${h.status.toUpperCase()} (${h.confidence}) ${h.statement}\n       evidence: ${h.evidence}\n       wrong if: ${h.would_be_wrong_if}`); console.log('\nConfirm or reject with: node cli.mjs taste --confirm <id> | --reject <id>'); }
+      else if (!flags.explain) console.log('\nFor plain-language hypotheses about what these decisions capture: node cli.mjs taste --explain  (needs ANTHROPIC_API_KEY, ≥5 decisions)');
+      console.log(`\nProfile: ${path.join(OUT_ROOT, 'taste-profile.json')}`);
       break;
     }
     default:
