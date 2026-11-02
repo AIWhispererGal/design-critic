@@ -159,13 +159,14 @@ ${judgeBlock}
 
 <section id="actions">
   <h2>Hand off</h2>
-  <p class="muted">Two outputs. The prompt is for whatever coding AI owns the codebase. The mockups show roughly what the accepted changes look like on the real page (CSS overrides on a snapshot), or a full rebuild if a key is configured.</p>
+  <p class="muted">Two outputs. The prompt is for whatever coding AI owns the codebase. <b>Mock up accepted changes</b> re-renders the live page with only your accepted items applied as CSS; nothing else changes. <b>Mock up full redesign</b> (needs a key) rebuilds the page from its content around one idea, honouring accepts and vetoes; it does not need everything accepted. Hover the buttons for details.</p>
   <div class="toolbar" style="position:static;border:0">
     <button class="primary" id="gen-prompt">Generate coding-AI prompt</button>
     <button id="copy-prompt">Copy</button>
     <button id="dl-prompt">Download .md</button>
-    <button id="mock-css">Mock up accepted changes</button>
-    <button id="mock-full">Mock up full redesign</button>
+    <button id="mock-css" title="Re-renders the live page with ONLY the accepted suggestions applied as CSS overrides. Everything you did not accept stays exactly as it is. Vetoed and undecided items are untouched.">Mock up accepted changes</button>
+    <label class="muted" style="font-size:.9rem"><input type="checkbox" id="mock-fullpage"> full page</label>
+    <button id="mock-full" title="Asks the model (needs ANTHROPIC_API_KEY) to rebuild the whole page from its real content around one idea, honouring every accepted item and never doing anything you vetoed. It does not require accepting everything; undecided items are left to the model's judgement.">Mock up full redesign</button>
     <button id="export">Export decisions (taste profile)</button>
   </div>
   <p class="status" id="status"></p>
@@ -242,9 +243,9 @@ async function mock(kind) {
   const box = document.getElementById('mock'); box.innerHTML = '';
   if (!serverOk) { status('Mockups need the local server: run  node cli.mjs serve  and open this report through it (http://localhost:4310/). The prompt generator works without it.'); return; }
   if (kind === 'css' && !state.accepted.length) { status('Accept at least one suggestion first.'); return; }
-  status(kind === 'css' ? 'Rendering before/after with the accepted changes applied as CSS…' : 'Asking the model for a full redesign and rendering it… (30–90 s)');
+  status(kind === 'css' ? 'Re-rendering the live page twice (as is, and with the accepted changes as CSS) at two widths… about 20–40 s' : 'Asking the model for a full redesign and rendering it… (30–90 s)');
   try {
-    const r = await fetch(kind === 'css' ? '/api/mockup' : '/api/redesign', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ report: DATA.reportId, accepted: state.accepted, vetoed: state.vetoed, notes: state.notes }) });
+    const r = await fetch(kind === 'css' ? '/api/mockup' : '/api/redesign', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ report: DATA.reportId, accepted: state.accepted, vetoed: state.vetoed, notes: state.notes, fullPage: document.getElementById('mock-fullpage').checked }) });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || r.statusText);
     const pairs = j.pairs || (j.shots ? j.shots.reduce((a, s, i, arr) => (i % 2 === 0 ? a.concat([{ label: s.label.split(' ·')[0], before: s.src, after: arr[i + 1] && arr[i + 1].src }]) : a), []) : []);

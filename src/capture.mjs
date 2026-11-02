@@ -482,19 +482,22 @@ export async function capture(target, { outDir, viewports = VIEWPORTS, timeout =
   return results;
 }
 
-/** Render an HTML snapshot with extra CSS injected, screenshot it. Used for mockups. */
-export async function renderWithCss(snapshotPath, css, { outPath, width = 1440, height = 900, fullPage = false, mobile = false } = {}) {
+/** Re-render a page with extra CSS injected and screenshot it. Used for mockups.
+ *  `target` is the live URL (preferred: JS runs, lazy images and web fonts load) or a snapshot .html path. */
+export async function renderWithCss(target, css, { outPath, width = 1440, height = 900, fullPage = false, mobile = false, timeout = 45000 } = {}) {
+  const url = /^https?:\/\//i.test(target) ? target : pathToFileURL(path.resolve(target)).href;
   const browser = await chromium.launch();
   try {
-    const ctx = await browser.newContext({ viewport: { width, height }, isMobile: mobile, hasTouch: mobile });
+    const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1, isMobile: mobile, hasTouch: mobile, colorScheme: 'light' });
     const page = await ctx.newPage();
-    await page.goto(pathToFileURL(path.resolve(snapshotPath)).href, { waitUntil: 'load', timeout: 30000 }).catch(() => {});
-    await page.waitForTimeout(500);
+    await page.goto(url, { waitUntil: 'load', timeout }).catch(() => {});
+    await page.waitForTimeout(800);
     await dismissBanners(page);
-    if (css) await page.addStyleTag({ content: css });
-    await page.waitForTimeout(300);
     await settle(page);
-    await page.screenshot({ path: outPath, type: 'jpeg', quality: 75, fullPage, clip: fullPage ? { x: 0, y: 0, width, height: Math.min(6000, await page.evaluate(() => document.documentElement.scrollHeight)) } : undefined });
+    if (css) await page.addStyleTag({ content: css });
+    await page.waitForTimeout(400);
+    const docH = await page.evaluate(() => document.documentElement.scrollHeight);
+    await page.screenshot({ path: outPath, type: 'jpeg', quality: 75, fullPage, clip: fullPage ? { x: 0, y: 0, width, height: Math.min(8000, docH) } : undefined });
     await ctx.close();
   } finally { await browser.close(); }
   return outPath;

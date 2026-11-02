@@ -10,7 +10,7 @@
 import './src/env.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
-import { analyze, loadReport, mergedCss, buildPrompt, mergeJudge, writeReport, OUT_ROOT } from './src/pipeline.mjs';
+import { analyze, loadReport, mergedCss, mockupSource, buildPrompt, mergeJudge, writeReport, OUT_ROOT } from './src/pipeline.mjs';
 import { renderWithCss } from './src/capture.mjs';
 import { refreshProfile, loadProfile, describeProfile, explainProfile, setHypothesis } from './src/taste.mjs';
 
@@ -54,13 +54,13 @@ function pickIds(ev, decisions) {
       break;
     }
     case 'mockup': {
-      const dir = resolveDir(pos[0]); const { ev, decisions } = loadReport(dir);
+      const dir = resolveDir(pos[0]); const { cap, ev, decisions } = loadReport(dir);
       const d = pickIds(ev, decisions);
       const css = `:root{--dc-accent:#1f4e5f}\n` + mergedCss(ev, d.accepted);
       fs.writeFileSync(path.join(dir, 'mockup-accepted.css'), css);
       const vp = flags.viewport === 'phone' ? { w: 390, h: 844, m: true } : { w: 1440, h: 900, m: false };
       const out = path.join(dir, 'shots', `mock-${flags.viewport || 'laptop'}${flags.full ? '-full' : ''}.jpg`);
-      await renderWithCss(path.join(dir, 'snapshot.html'), css, { outPath: out, width: vp.w, height: vp.h, mobile: vp.m, fullPage: !!flags.full });
+      await renderWithCss(mockupSource(dir, cap), css, { outPath: out, width: vp.w, height: vp.h, mobile: vp.m, fullPage: !!flags.full });
       console.log(`Mockup: ${out}\nCSS: ${path.join(dir, 'mockup-accepted.css')} (${ev.findings.filter(f => d.accepted.includes(f.id) && f.cssPatch).length} of ${d.accepted.length} accepted changes have a CSS approximation)`);
       break;
     }

@@ -42,6 +42,11 @@ export function loadReport(outDir) {
   return { cap, ev, decisions };
 }
 
+/** What to re-render for a mockup: the live URL when we have one, else the saved snapshot. */
+export function mockupSource(dir, cap) {
+  return /^https?:\/\//i.test(cap?.url || '') ? cap.url : path.join(dir, 'snapshot.html');
+}
+
 export function mergedCss(ev, accepted) {
   return ev.findings.filter(f => accepted.includes(f.id) && f.cssPatch).map(f => `/* ${f.id} ${f.title} */\n${f.cssPatch}`).join('\n\n');
 }
