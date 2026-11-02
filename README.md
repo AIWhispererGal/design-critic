@@ -94,6 +94,15 @@ if it isn't already on the machine).
 npm install
 ```
 
+## Credit and decisions
+
+This tool stands on other people's work, mostly the taste-skill study (Leonxlnx, MIT), Anthropic's
+frontend-design skill (Apache 2.0), Vercel's Web Interface Guidelines (MIT), impeccable's ideas (Paul
+Bakaus, Apache 2.0), axe-core (Deque, MPL 2.0), and the DesignPref / UI-Bench papers. Exactly what was taken
+from each, and under which licence, is in [`CREDITS.md`](CREDITS.md). Why the tool is built the way it is,
+including what we chose not to do, is in [`DECISIONS.md`](DECISIONS.md). The research survey behind both is
+[`RESEARCH.md`](RESEARCH.md).
+
 ## Honest limits
 
 - Deterministic rules see the DOM, not the idea. Creativity and AI-look stay "provisional" until a reviewer
@@ -123,4 +132,6 @@ src/env.mjs        .env loader
 fixtures/slop.html a deliberately generic page for testing (scores 5.7; accessibility, AI-look, responsive all 0)
 test/ui-smoke.mjs  drives the report UI end to end against a running server
 RESEARCH.md        survey of existing tools, the design literature, and AI-judge reliability
+CREDITS.md         what was taken from whom, with licences
+DECISIONS.md       why it is built this way, and what was deliberately left out
 ```
