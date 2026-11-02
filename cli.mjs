@@ -15,6 +15,8 @@ import { renderWithCss } from './src/capture.mjs';
 const [, , cmd, ...rest] = process.argv;
 const flags = {}; const pos = [];
 for (let i = 0; i < rest.length; i++) { if (rest[i].startsWith('--')) { const k = rest[i].slice(2); const v = rest[i + 1] && !rest[i + 1].startsWith('--') ? rest[++i] : true; flags[k] = v; } else pos.push(rest[i]); }
+const KNOWN = { analyze: ['out', 'judge'], serve: ['port'], prompt: ['accept', 'veto', 'all', 'p01'], mockup: ['accept', 'veto', 'all', 'p01', 'viewport', 'full'], judge: [], 'merge-judge': [] };
+for (const k of Object.keys(flags)) if (KNOWN[cmd] && !KNOWN[cmd].includes(k)) console.error(`warning: --${k} is not used by "${cmd}"${k === 'judge' ? ' (put --judge on "analyze", or run: node cli.mjs judge <report>)' : ''}`);
 const resolveDir = d => fs.existsSync(path.join(d, 'evaluation.json')) ? d : path.join(OUT_ROOT, d);
 
 function pickIds(ev, decisions) {
