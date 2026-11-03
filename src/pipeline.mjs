@@ -15,10 +15,10 @@ export function slug(target) {
   return target.replace(/^https?:\/\//, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').slice(0, 60).toLowerCase() || 'page';
 }
 
-export async function analyze(target, { outDir, runJudge = false, log = console.error } = {}) {
-  outDir = outDir || path.join(OUT_ROOT, `${slug(target)}-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '')}`);
+export async function analyze(target, { outDir, runJudge = false, selector = null, log = console.error } = {}) {
+  outDir = outDir || path.join(OUT_ROOT, `${slug(target)}${selector ? '-' + slug(selector).slice(0, 20) : ''}-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '')}`);
   fs.mkdirSync(outDir, { recursive: true });
-  const cap = await capture(target, { outDir, log });
+  const cap = await capture(target, { outDir, selector, log });
   let ev = evaluate(cap);
   let judgeStatus = { ran: false, reason: 'Judge pass not requested (use --judge).' };
   buildPacket(cap, ev, outDir);
@@ -49,6 +49,15 @@ export function mockupSource(dir, cap) {
 
 export function mergedCss(ev, accepted) {
   return ev.findings.filter(f => accepted.includes(f.id) && f.cssPatch).map(f => `/* ${f.id} ${f.title} */\n${f.cssPatch}`).join('\n\n');
+}
+
+/** CI gate: evaluate thresholds against an evaluation. Returns { pass, failures[] }. */
+export function checkThresholds(ev, { minOverall = null, min = {}, maxSeverity = {} } = {}) {
+  const failures = [];
+  if (minOverall != null && ev.overall < minOverall) failures.push(`overall ${ev.overall} < ${minOverall}`);
+  for (const [k, v] of Object.entries(min)) { const sc = ev.scores[k]; if (!sc) failures.push(`unknown parameter ${k}`); else if (sc.score != null && sc.score < v) failures.push(`${k} ${sc.score} < ${v}`); }
+  for (const [sev, max] of Object.entries(maxSeverity)) { const n = ev.findings.filter(f => f.severity === sev).length; if (n > max) failures.push(`${n} ${sev} findings > ${max}: ${ev.findings.filter(f => f.severity === sev).map(f => f.title).slice(0, 5).join('; ')}`); }
+  return { pass: failures.length === 0, failures };
 }
 
 export { buildPrompt, mergeJudge, writeReport };

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // design-critic CLI
-//   node cli.mjs analyze <url|file> [--out dir] [--judge]
+//   node cli.mjs analyze <url|file> [--out dir] [--judge] [--selector ".pricing"]
+//   node cli.mjs check <url|file> [--min-overall 7] [--min accessibility=8] [--max P0=0] [--json] [--github]
 //   node cli.mjs serve [--port 4310]
 //   node cli.mjs prompt <reportDir> [--accept F001,F002 | --all | --p01] [--veto F003]
 //   node cli.mjs mockup <reportDir> [--accept ...] [--viewport laptop|phone]
@@ -17,7 +18,7 @@ import { refreshProfile, loadProfile, describeProfile, explainProfile, setHypoth
 const [, , cmd, ...rest] = process.argv;
 const flags = {}; const pos = [];
 for (let i = 0; i < rest.length; i++) { if (rest[i].startsWith('--')) { const k = rest[i].slice(2); const v = rest[i + 1] && !rest[i + 1].startsWith('--') ? rest[++i] : true; flags[k] = v; } else pos.push(rest[i]); }
-const KNOWN = { analyze: ['out', 'judge'], serve: ['port'], prompt: ['accept', 'veto', 'all', 'p01'], mockup: ['accept', 'veto', 'all', 'p01', 'viewport', 'full'], judge: [], 'merge-judge': [], taste: ['explain', 'confirm', 'reject', 'json'] };
+const KNOWN = { analyze: ['out', 'judge', 'selector'], check: ['out', 'selector', 'min-overall', 'min', 'max', 'json', 'github'], serve: ['port'], prompt: ['accept', 'veto', 'all', 'p01'], mockup: ['accept', 'veto', 'all', 'p01', 'viewport', 'full'], judge: [], 'merge-judge': [], taste: ['explain', 'confirm', 'reject', 'json'] };
 for (const k of Object.keys(flags)) if (KNOWN[cmd] && !KNOWN[cmd].includes(k)) console.error(`warning: --${k} is not used by "${cmd}"${k === 'judge' ? ' (put --judge on "analyze", or run: node cli.mjs judge <report>)' : ''}`);
 const resolveDir = d => fs.existsSync(path.join(d, 'evaluation.json')) ? d : path.join(OUT_ROOT, d);
 
@@ -34,13 +35,30 @@ function pickIds(ev, decisions) {
   switch (cmd) {
     case 'analyze': {
       if (!pos[0]) throw new Error('usage: analyze <url|file>');
-      const r = await analyze(pos[0], { outDir: flags.out, runJudge: !!flags.judge });
+      const r = await analyze(pos[0], { outDir: flags.out, runJudge: !!flags.judge, selector: flags.selector || null });
       console.log(`\nReport: ${r.reportPath}`);
       console.log(`Overall ${r.evaluation.overall}/10`);
-      for (const [k, v] of Object.entries(r.evaluation.scores)) console.log(`  ${k.padEnd(16)} ${String(v.score).padStart(4)}  (${v.findings} finding${v.findings === 1 ? '' : 's'}${v.provisional ? ', provisional' : ''})`);
+      for (const [k, v] of Object.entries(r.evaluation.scores)) console.log(v.score == null ? `  ${k.padEnd(16)}    –  (${v.unscored})` : `  ${k.padEnd(16)} ${String(v.score).padStart(4)}  (${v.findings} finding${v.findings === 1 ? '' : 's'}${v.provisional ? ', provisional' : ''})`);
       console.log(`${r.evaluation.findings.length} suggestions. Judge: ${r.judgeStatus.ran ? 'ran (' + (r.judgeStatus.model || '') + ')' : r.judgeStatus.reason}`);
       console.log(`Open with: node cli.mjs serve  → http://localhost:4310/out/${path.basename(r.outDir)}/report.html`);
       break;
+    }
+    case 'check': {
+      // CI gate. Exit 0 pass, 2 fail, 1 error. --json prints machine-readable output; --github prints annotations.
+      if (!pos[0]) throw new Error('usage: check <url|file> [--min-overall 7] [--min accessibility=8,responsive=7] [--max P0=0,P1=2] [--json] [--github]');
+      const parseKV = v => Object.fromEntries(String(v || '').split(',').filter(Boolean).map(x => { const [k, n] = x.split('='); return [k.trim(), +n]; }));
+      const r = await analyze(pos[0], { outDir: flags.out, selector: flags.selector || null, log: flags.json ? () => {} : console.error });
+      const { checkThresholds } = await import('./src/pipeline.mjs');
+      const gate = checkThresholds(r.evaluation, { minOverall: flags['min-overall'] != null ? +flags['min-overall'] : null, min: parseKV(flags.min), maxSeverity: parseKV(flags.max) });
+      if (flags.json) console.log(JSON.stringify({ url: r.evaluation.summary.url, selector: flags.selector || null, overall: r.evaluation.overall, pass: gate.pass, failures: gate.failures, scores: Object.fromEntries(Object.entries(r.evaluation.scores).map(([k, v]) => [k, v.score])), findings: r.evaluation.findings.map(f => ({ id: f.id, rule: f.rule, severity: f.severity, param: f.param, title: f.title, evidence: f.evidence, suggestion: f.suggestion, viewports: f.viewports })), report: r.reportPath }, null, 1));
+      else {
+        console.log(`${gate.pass ? 'PASS' : 'FAIL'}  overall ${r.evaluation.overall}/10  ${pos[0]}${flags.selector ? '  [' + flags.selector + ']' : ''}`);
+        for (const f of gate.failures) console.log(`  ✗ ${f}`);
+        for (const f of r.evaluation.findings.filter(f => f.severity === 'P0' || f.severity === 'P1')) console.log(`  ${f.severity} ${f.param}: ${f.title}`);
+        console.log(`  report: ${r.reportPath}`);
+      }
+      if (flags.github) for (const f of r.evaluation.findings) console.log(`::${f.severity === 'P0' || f.severity === 'P1' ? 'error' : 'warning'} title=${f.param} ${f.severity}::${f.title} — ${f.suggestion.replace(/\n/g, ' ')}`);
+      process.exit(gate.pass ? 0 : 2);
     }
     case 'serve': { const { serve } = await import('./src/serve.mjs'); serve({ port: +(flags.port || process.env.DC_PORT || 4310) }); break; }
     case 'prompt': {

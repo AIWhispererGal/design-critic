@@ -92,7 +92,7 @@ export function mergeJudge(evaluation, j) {
   const map = { creativity: 'creativity', ai_look: 'ai_look', placement: 'placement', hierarchy: 'hierarchy', color: 'color', typography: 'typography', imagery: 'imagery', responsive: 'responsive' };
   for (const [k, p] of Object.entries(map)) {
     const js = Number(j.scores[k]);
-    if (!Number.isFinite(js) || !out.scores[p]) continue;
+    if (!Number.isFinite(js) || !out.scores[p] || out.scores[p].score == null) continue;
     const w = (p === 'creativity' || p === 'ai_look') ? 0.7 : 0.4; // judge dominates taste parameters, measurements dominate the rest
     out.scores[p].judge = js;
     out.scores[p].score = Math.round((out.scores[p].score * (1 - w) + js * w) * 10) / 10;
@@ -104,7 +104,8 @@ export function mergeJudge(evaluation, j) {
   }
   out.judge = { concept: j.concept, competitor_test: j.competitor_test, what_works: j.what_works, redesign_direction: j.redesign_direction, frame_check: j.frame_check, overall_impression: j.scores.overall_impression };
   const weights = { accessibility: 1.5, ai_look: 1.3, typography: 1.2, hierarchy: 1.1, responsive: 1.1, creativity: 1.0, color: 1, placement: 1, space: 0.8, negative_space: 0.8, ux_principles: 1, copy: 0.8, motion: 0.6, consistency: 0.7, imagery: 0.9, craft: 0.5 };
-  out.overall = Math.round(Object.entries(out.scores).reduce((a, [k, v]) => a + v.score * (weights[k] || 1), 0) / Object.values(weights).reduce((a, b) => a + b, 0) * 10) / 10;
+  const se = Object.entries(out.scores).filter(([, v]) => v.score != null);
+  out.overall = Math.round(se.reduce((a, [k, v]) => a + v.score * (weights[k] || 1), 0) / se.reduce((a, [k]) => a + (weights[k] || 1), 0) * 10) / 10;
   return out;
 }
 

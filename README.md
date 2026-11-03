@@ -38,6 +38,63 @@ Sixteen parameters, each scored 0–10 with every deduction tied to a finding yo
 Every finding has: **Now** (the measurement), **Change** (what to do), **Why** (the principle), **Source**
 (where the principle comes from), and often **Mockup CSS** (an approximation the renderer can apply).
 
+## How to use it
+
+### 1. Before a coding AI touches the UI
+
+The main use. Most people prompt "make a landing page", get the purple gradient, then argue with it.
+Flip the order:
+
+```
+# agent builds on a dev server, then:
+node cli.mjs analyze http://localhost:3000
+node cli.mjs serve            # open the report, accept / veto, add notes
+```
+
+Press **Generate coding-AI prompt** and paste it back to the agent. The brief contains only what you
+accepted, your vetoes as hard "do not" lines, the measured current state, your learned preferences, a
+quality floor, and a plan-then-build-then-screenshot process. Two or three rounds is the loop that moves
+scores. Each round starts closer to you instead of closer to the training-data average.
+
+### 2. As a gate in CI
+
+The deterministic half needs no key, so it can run on every deploy preview:
+
+```
+node cli.mjs check https://preview.example.com --min-overall 7 --max P0=0 --min accessibility=8,responsive=7
+```
+
+Exit code 0 passes, 2 fails (with the reasons listed), 1 is an error. `--json` prints scores and findings
+for machines; `--github` prints GitHub Actions annotations. A minimal workflow step:
+
+```yaml
+- run: npm ci && npx playwright install --with-deps chromium
+- run: node cli.mjs check ${{ env.PREVIEW_URL }} --max P0=0 --min accessibility=8 --github
+```
+
+Gate on the measured parameters (accessibility, responsive, craft, the AI-look tells). Don't gate on
+creativity; that one is a conversation, not a threshold.
+
+### 3. With a client or a team
+
+Run it on their current site before the first meeting. A measurement lands differently than an opinion:
+"your text fails WCAG contrast in twenty places" is a fact, not a pitch. Then have them do the vetoes.
+Their decisions become their taste profile, which is the thing every agency reconstructs by hand over
+six weeks of revisions. Export it (`Export decisions`) and keep it with the project.
+
+### 4. One component at a time
+
+Most daily work is "this modal", "this pricing table", not "this site". Scope the review:
+
+```
+node cli.mjs analyze https://example.com --selector ".pricing"
+```
+
+or put the selector in the box on the home page. Page-level rules (hero, nav, imagery count, section
+rhythm, creativity) switch off and their parameters show as unscored; the screenshot and the juror's view
+are of the element only; mockups re-render just that element. The rules that remain are the ones that
+matter inside a component: contrast, names, targets, typeface, tells, cards, radii, motion, overflow.
+
 ## The loop
 
 1. `analyze` captures the page at four viewports (screenshots + an HTML snapshot), runs axe-core, and
@@ -70,7 +127,8 @@ Every finding has: **Now** (the measurement), **Change** (what to do), **Why** (
 ## CLI
 
 ```
-node cli.mjs analyze <url|file> [--out dir] [--judge]
+node cli.mjs analyze <url|file> [--out dir] [--judge] [--selector ".pricing"]
+node cli.mjs check <url|file> [--min-overall 7] [--min accessibility=8,responsive=7] [--max P0=0,P1=2] [--json] [--github] [--selector ...]
 node cli.mjs serve [--port 4310]
 node cli.mjs prompt <report> [--all | --p01 | --accept F001,F002] [--veto F003]
 node cli.mjs mockup <report> [--all | --p01 | --accept ...] [--viewport phone] [--full]
@@ -124,6 +182,8 @@ src/rules.mjs      parameters, findings, scores
 src/judge.mjs      juror brief, Claude call, review packet, merge, full redesign
 src/prompt.mjs     hand-off prompt builder (isomorphic; also runs in the report)
 src/report.mjs     report.html generator
+src/home.mjs       the server's front page (analyse, reports, taste, how-to)
+src/theme.mjs      the one stylesheet both pages share
 src/serve.mjs      local server + API (/api/analyze, /decisions, /mockup, /redesign, /judge, /prompt)
 src/pipeline.mjs   glue
 src/taste.mjs      decisions → profile (rates, lifts, hypotheses); applied to reports, prompts, juror brief

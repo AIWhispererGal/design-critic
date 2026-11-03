@@ -220,7 +220,7 @@ export function evaluate(capture) {
   // ======================= RESPONSIVE =======================
   for (const v of vps) {
     const m = v.metrics;
-    if (m.horizontalScroll || m.overflowEls > 0) add({ param: 'responsive', severity: m.horizontalScroll ? 'P0' : 'P2', title: `Horizontal overflow at ${v.width}px`, evidence: `scrollWidth ${m.scrollWidth} vs viewport ${v.width}; ${m.overflowEls} elements extend past the right edge${(m.selectors?.overflow || []).length ? ` (${m.selectors.overflow.slice(0, 3).join(', ')})` : ''}.`, why: 'Horizontal scroll on a phone is the most visible responsive failure; it usually means a fixed pixel width or an un-wrapped flex row.', source: SRC.vercel, suggestion: 'Replace fixed widths with max-width:100%; allow flex-wrap; set min-width:0 on flex children; hide overflow-x only as a last resort.', cssPatch: `img,video,svg,iframe{max-width:100%;}\n${(m.selectors?.overflow || []).map(s => `${s}{max-width:100%!important;width:auto!important;}`).join('\n')}`, viewports: [v.name] });
+    if ((m.horizontalScroll && !m.scoped) || m.overflowEls > 0) add({ param: 'responsive', severity: m.horizontalScroll && !m.scoped ? 'P0' : 'P2', title: `Horizontal overflow at ${v.width}px`, evidence: `scrollWidth ${m.scrollWidth} vs viewport ${v.width}; ${m.overflowEls} elements extend past the right edge${(m.selectors?.overflow || []).length ? ` (${m.selectors.overflow.slice(0, 3).join(', ')})` : ''}.`, why: 'Horizontal scroll on a phone is the most visible responsive failure; it usually means a fixed pixel width or an un-wrapped flex row.', source: SRC.vercel, suggestion: 'Replace fixed widths with max-width:100%; allow flex-wrap; set min-width:0 on flex children; hide overflow-x only as a last resort.', cssPatch: `img,video,svg,iframe{max-width:100%;}\n${(m.selectors?.overflow || []).map(s => `${s}{max-width:100%!important;width:auto!important;}`).join('\n')}`, viewports: [v.name] });
     if (m.hero && m.hero.lines >= 3 && v.mobile) add({ param: 'responsive', severity: 'P2', title: `Headline wraps to ${m.hero.lines} lines at ${v.width}px`, evidence: `h1 ${m.hero.size}px (${m.hero.sizeVw}vw) "${m.hero.text.slice(0, 60)}"`, why: 'Three lines or fewer on a phone is met by 82% of studied sites; type that does not scale down reads as a desktop page squeezed.', source: SRC.taste, suggestion: 'Use clamp() for display sizes (e.g. clamp(2rem, 8vw, 6rem)) and cut words.', cssPatch: m.selectors?.h1 ? `@media (max-width:${v.width + 40}px){${m.selectors.h1}{font-size:clamp(1.75rem,8vw,4rem)!important;line-height:1.05!important;}}` : undefined, viewports: [v.name] });
     if (v.name === 'phone' && m.tinyChars / Math.max(1, m.totalChars) > 0.1) add({ param: 'responsive', severity: 'P2', title: `Small text at ${v.width}px`, evidence: `${Math.round(100 * m.tinyChars / m.totalChars)}% of text under 13px.`, why: 'Text should not shrink on phones; if anything it grows (16px body minimum avoids iOS zoom-on-focus too).', source: `${SRC.wcag} 1.4.4`, suggestion: 'Body 16px+ on phone; captions ≥13px.', viewports: [v.name] });
     if (v.mobile && m.paragraphs.some(p => p.cpl < 25 && p.lines > 6)) add({ param: 'responsive', severity: 'P3', title: `Very narrow text columns at ${v.width}px`, evidence: 'Paragraphs wrapping at <25 characters per line.', why: 'Multi-column layouts that do not collapse produce ribbon-thin columns on phones.', source: SRC.bringhurst, suggestion: 'Stack columns below 768px.', viewports: [v.name] });
@@ -254,6 +254,13 @@ export function evaluate(capture) {
   const negatives = creativeSignals.filter(s => !s.startsWith('+')).length, positives = creativeSignals.length - negatives;
   add({ param: 'creativity', rule: 'creativity.concept-check', severity: negatives >= 3 ? 'P1' : negatives >= 1 ? 'P2' : 'P3', title: negatives >= 2 ? 'Reads as the category template' : 'Concept check', evidence: creativeSignals.length ? creativeSignals.join('; ') : 'No strong template signals measured.', why: 'The clearest pattern in the study: high scores go with a concept taken from the subject ("the product demonstrates itself", "the page is an artefact from the subject\'s world", "the name is the hero"); low scores go with its absence ("the standard dark SaaS launch formula"). Heuristics can only detect the absence; a reviewer must judge the presence.', source: `${SRC.taste}; ${SRC.anthropic}`, suggestion: 'Write one sentence tying this subject\'s own material to a visual idea no competitor could paste. Spend the boldness in one place; keep everything else quiet.', needsJudge: true });
 
+  // ======================= SCOPED (component) MODE =======================
+  // Page-level judgements make no sense for one component; drop them and mark their parameters unscored.
+  const scoped = !!M.scoped;
+  const PAGE_LEVEL = /^(placement\.|negative_space\.|imagery\.|creativity\.|craft\.|copy\.category-generic|typography\.hero-timid|hierarchy\.the-h-is-a-paragraph|hierarchy\.headline-runs|hierarchy\.every-section|space\.sections|space\.inconsistent-section|space\.unequal|accessibility\.no-main|accessibility\.no-lang|accessibility\.heading-structure|accessibility\.zoom|ux_principles\.nothing-shows|ux_principles\.full-desktop|ux_principles\.two-equal|responsive\.no-responsive|responsive\.headline-wraps|responsive\.running-text|responsive\.display-type|responsive\.hero-alignment|motion\.no-motion|consistency\.different-primary)/;
+  const UNSCORED_WHEN_SCOPED = new Set(['placement', 'negative_space', 'imagery', 'creativity', 'craft']);
+  if (scoped) for (let i = findings.length - 1; i >= 0; i--) if (PAGE_LEVEL.test(findings[i].rule)) findings.splice(i, 1);
+
   // ======================= SCORES =======================
   const scores = {};
   for (const p of PARAMETERS) {
@@ -262,12 +269,14 @@ export function evaluate(capture) {
     if (p.id === 'ai_look') s = aiLook;
     if (p.id === 'creativity') s = clamp(7.5 - negatives * 1.5 + positives * 0.75);
     scores[p.id] = { score: r1(clamp(s)), findings: fs.length, provisional: p.id === 'creativity' || p.id === 'ai_look' };
+    if (scoped && UNSCORED_WHEN_SCOPED.has(p.id)) scores[p.id] = { score: null, findings: 0, unscored: 'page-level; not scored for a component' };
   }
   const weights = { accessibility: 1.5, ai_look: 1.3, typography: 1.2, hierarchy: 1.1, responsive: 1.1, creativity: 1.0, color: 1, placement: 1, space: 0.8, negative_space: 0.8, ux_principles: 1, copy: 0.8, motion: 0.6, consistency: 0.7, imagery: 0.9, craft: 0.5 };
-  const overall = r1(Object.entries(scores).reduce((a, [k, v]) => a + v.score * (weights[k] || 1), 0) / Object.values(weights).reduce((a, b) => a + b, 0));
+  const scoredEntries = Object.entries(scores).filter(([, v]) => v.score != null);
+  const overall = r1(scoredEntries.reduce((a, [k, v]) => a + v.score * (weights[k] || 1), 0) / scoredEntries.reduce((a, [k]) => a + (weights[k] || 1), 0));
 
   // Design-token proposal (used by the prompt generator): what we observed, what we'd change.
   const observed = { typeface: mainFont, families: fontList.slice(0, 3).map(([f, c]) => `${f} (${pct(c)}%)`), bodySize, heroSize: M.hero?.size, ground: M.bodyBg, accents: M.accents, radii: radiusKeys, sectionGaps: M.sectionGaps };
 
-  return { overall, scores, findings: findings.sort((a, b) => SEV[b.severity] - SEV[a.severity]), observed, tells: tells.map(t => t.label), summary: { viewports: vps.map(v => `${v.name} ${v.width}×${v.height}`), url: capture.url, title: M.copy.title } };
+  return { overall, scores, findings: findings.sort((a, b) => SEV[b.severity] - SEV[a.severity]), observed, tells: tells.map(t => t.label), summary: { viewports: vps.map(v => `${v.name} ${v.width}×${v.height}`), url: capture.url, title: M.copy.title, selector: capture.selector || null, scoped } };
 }

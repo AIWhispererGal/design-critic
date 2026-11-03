@@ -25,7 +25,10 @@ export function toUrl(target) {
 
 /** Runs inside the page. Must be self-contained (no imports). */
 function collectMetrics(opts) {
-  const { mobile } = opts;
+  const { mobile, selector } = opts;
+  const root = selector ? document.querySelector(selector) : document.body;
+  if (!root) throw new Error('selector not found: ' + selector);
+  const scoped = !!selector;
   const vw = window.innerWidth, vh = window.innerHeight;
   const doc = document.documentElement;
   const docHeight = Math.max(doc.scrollHeight, document.body ? document.body.scrollHeight : 0);
@@ -109,7 +112,7 @@ function collectMetrics(opts) {
   }
 
   // ---------- gather elements ----------
-  const all = Array.from(document.body.querySelectorAll('*')).slice(0, 8000);
+  const all = Array.from(root.querySelectorAll('*')).slice(0, 8000);
   const visible = [];
   for (const el of all) {
     const tag = el.tagName.toLowerCase();
@@ -129,7 +132,7 @@ function collectMetrics(opts) {
   let buzzwords = 0;
   const emojiRe = /\p{Extended_Pictographic}/gu;
   const textEls = [];
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   let n;
   while ((n = walker.nextNode())) {
     const t = n.nodeValue.replace(/\s+/g, ' ').trim();
@@ -259,7 +262,7 @@ function collectMetrics(opts) {
   }
 
   // ---------- hero / first viewport ----------
-  const h1 = document.querySelector('h1');
+  const h1 = root.querySelector('h1') || (scoped ? root.querySelector('h2,h3') : null);
   let hero = null;
   const firstScreen = visible.filter(v => v.r.y < vh);
   const mediaArea = firstScreen.filter(v => ['img', 'video', 'canvas', 'picture'].includes(v.el.tagName.toLowerCase()) || (v.cs.backgroundImage && /url\(/.test(v.cs.backgroundImage)))
@@ -281,7 +284,7 @@ function collectMetrics(opts) {
   const firstScreenImgs = firstScreen.filter(v => v.el.tagName === 'IMG').length;
 
   // ---------- navigation ----------
-  const navEl = document.querySelector('nav, header nav, [role="navigation"], header');
+  const navEl = scoped ? root.querySelector('nav, [role="navigation"]') : document.querySelector('nav, header nav, [role="navigation"], header');
   let nav = { exists: false };
   if (navEl) {
     const cs = getComputedStyle(navEl);
@@ -289,7 +292,7 @@ function collectMetrics(opts) {
   }
 
   // ---------- images ----------
-  const imgs = Array.from(document.images);
+  const imgs = Array.from(root.querySelectorAll('img'));
   const images = {
     count: imgs.length,
     visibleCount: imgs.filter(i => { const r = i.getBoundingClientRect(); return r.width > 30 && r.height > 30; }).length,
@@ -297,9 +300,9 @@ function collectMetrics(opts) {
     missingDims: imgs.filter(i => !i.getAttribute('width') || !i.getAttribute('height')).length,
     lazyBelowFold: imgs.filter(i => i.getBoundingClientRect().top > vh && i.loading === 'lazy').length,
     belowFold: imgs.filter(i => i.getBoundingClientRect().top > vh).length,
-    videos: document.querySelectorAll('video').length,
-    canvases: document.querySelectorAll('canvas').length,
-    svgIllustrations: Array.from(document.querySelectorAll('svg')).filter(s => { const r = s.getBoundingClientRect(); return r.width > 120 && r.height > 120; }).length,
+    videos: root.querySelectorAll('video').length,
+    canvases: root.querySelectorAll('canvas').length,
+    svgIllustrations: Array.from(root.querySelectorAll('svg')).filter(s => { const r = s.getBoundingClientRect(); return r.width > 120 && r.height > 120; }).length,
     aspectRatios: imgs.slice(0, 60).map(i => { const r = i.getBoundingClientRect(); return r.height ? +(r.width / r.height).toFixed(2) : 0; }).filter(Boolean),
   };
 
@@ -310,8 +313,8 @@ function collectMetrics(opts) {
   const tinyTargets = interactive.filter(v => v.r.w < 24 || v.r.h < 24).length;
   const iconButtonsNoName = interactive.filter(v => ['a', 'button'].includes(v.el.tagName.toLowerCase()) && !(v.el.innerText || '').trim() && !v.el.getAttribute('aria-label') && !v.el.getAttribute('aria-labelledby') && !v.el.getAttribute('title') && !v.el.querySelector('img[alt]:not([alt=""])')).length;
   const divClick = all.filter(el => ['DIV', 'SPAN'].includes(el.tagName) && (el.hasAttribute('onclick') || el.getAttribute('role') === 'button')).length;
-  const inputsNoLabel = Array.from(document.querySelectorAll('input:not([type=hidden]):not([type=submit]):not([type=button]), select, textarea')).filter(i => !i.labels?.length && !i.getAttribute('aria-label') && !i.getAttribute('aria-labelledby') && !i.getAttribute('placeholder')).length;
-  const genericLinks = Array.from(document.querySelectorAll('a')).filter(a => /^(click here|learn more|read more|here|more|submit|continue)$/i.test((a.innerText || '').trim())).length;
+  const inputsNoLabel = Array.from(root.querySelectorAll('input:not([type=hidden]):not([type=submit]):not([type=button]), select, textarea')).filter(i => !i.labels?.length && !i.getAttribute('aria-label') && !i.getAttribute('aria-labelledby') && !i.getAttribute('placeholder')).length;
+  const genericLinks = Array.from(root.querySelectorAll('a')).filter(a => /^(click here|learn more|read more|here|more|submit|continue)$/i.test((a.innerText || '').trim())).length;
   const vpMeta = document.querySelector('meta[name="viewport"]')?.getAttribute('content') || '';
   const zoomBlocked = /user-scalable\s*=\s*no|maximum-scale\s*=\s*1(\.0)?(\s|,|$)/i.test(vpMeta);
   let outlineNone = 0, reducedMotion = false, focusVisibleRules = 0, mediaQueries = 0, containerQueries = 0, clampUsage = 0;
@@ -332,9 +335,9 @@ function collectMetrics(opts) {
   } catch {}
   const headingLevels = headings.map(h => +h.tag[1]);
   let headingSkips = 0; for (let i = 1; i < headingLevels.length; i++) if (headingLevels[i] - headingLevels[i - 1] > 1) headingSkips++;
-  const h1Count = document.querySelectorAll('h1').length;
+  const h1Count = root.querySelectorAll('h1').length;
   const lang = doc.getAttribute('lang') || '';
-  const skipLink = !!Array.from(document.querySelectorAll('a[href^="#"]')).find(a => /skip/i.test(a.innerText || ''));
+  const skipLink = !!Array.from(root.querySelectorAll('a[href^="#"]')).find(a => /skip/i.test(a.innerText || ''));
   const landmarks = { main: !!document.querySelector('main, [role=main]'), nav: !!document.querySelector('nav, [role=navigation]'), footer: !!document.querySelector('footer, [role=contentinfo]') };
 
   // ---------- layout: margins, overflow, empty screens, section gaps ----------
@@ -354,7 +357,7 @@ function collectMetrics(opts) {
   const overflowList = visible.filter(v => v.r.right > vw + 2 && v.r.w > 20 && !clipped(v.el));
   const overflowEls = overflowList.length; overflowList.slice(0, 10).forEach(v => addSel('overflow', v.el));
   const horizontalScroll = doc.scrollWidth > vw + 2;
-  const sections = Array.from(document.querySelectorAll('main > section, body > section, main > *, body > *')).filter(s => { const r = s.getBoundingClientRect(); return r.height > 80 && !['SCRIPT', 'STYLE', 'NAV', 'HEADER', 'FOOTER'].includes(s.tagName); });
+  const sections = Array.from(root.querySelectorAll('main > section, body > section, main > *, body > *')).filter(s => { const r = s.getBoundingClientRect(); return r.height > 80 && !['SCRIPT', 'STYLE', 'NAV', 'HEADER', 'FOOTER'].includes(s.tagName); });
   const sectionGaps = [];
   for (let i = 1; i < sections.length; i++) {
     const a = sections[i - 1].getBoundingClientRect(), b = sections[i].getBoundingClientRect();
@@ -382,7 +385,9 @@ function collectMetrics(opts) {
   const vagueButtons = buttonTexts.filter(t => /^(submit|continue|click here|learn more|get started|ok)$/i.test(t)).length;
   const title = document.title;
 
+  const rootRect = root.getBoundingClientRect();
   return {
+    scoped, selector: selector || null, scopeRect: scoped ? { x: Math.round(rootRect.left), y: Math.round(rootRect.top + window.scrollY), w: Math.round(rootRect.width), h: Math.round(rootRect.height) } : null,
     selectors,
     viewport: { w: vw, h: vh, mobile }, docHeight, horizontalScroll, scrollWidth: doc.scrollWidth, overflowEls,
     totalChars, tinyChars, fonts, fontSizes, weights, textColors: topText, bgColors: topBg, bodyBg: hex(bodyBg), accentHues, accents: accents.slice(0, 10).map(a => a.hex), tintedBlack,
@@ -398,13 +403,13 @@ function collectMetrics(opts) {
   };
 }
 
-async function runAxe(page) {
+async function runAxe(page, selector = null) {
   try {
     await page.addScriptTag({ content: AXE_SRC });
-    const res = await page.evaluate(async () => {
-      const r = await window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'best-practice'] }, resultTypes: ['violations'] });
+    const res = await page.evaluate(async (selector) => {
+      const r = await window.axe.run(selector ? document.querySelector(selector) : document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'best-practice'] }, resultTypes: ['violations'] });
       return r.violations.map(v => ({ id: v.id, impact: v.impact, help: v.help, helpUrl: v.helpUrl, nodes: v.nodes.length, sample: v.nodes.slice(0, 3).map(n => ({ target: n.target.join(' '), summary: n.failureSummary?.split('\n').slice(0, 3).join(' ') })) }));
-    });
+    }, selector);
     return { ok: true, violations: res };
   } catch (e) {
     return { ok: false, error: String(e.message || e).slice(0, 200), violations: [] };
@@ -431,11 +436,11 @@ async function settle(page) {
   await page.waitForTimeout(400);
 }
 
-export async function capture(target, { outDir, viewports = VIEWPORTS, timeout = 45000, log = () => {} } = {}) {
+export async function capture(target, { outDir, viewports = VIEWPORTS, timeout = 45000, selector = null, log = () => {} } = {}) {
   const url = toUrl(target);
   fs.mkdirSync(path.join(outDir, 'shots'), { recursive: true });
   const browser = await chromium.launch();
-  const results = { url, target, capturedAt: new Date().toISOString(), viewports: [] };
+  const results = { url, target, selector, capturedAt: new Date().toISOString(), viewports: [] };
   let snapshotSaved = false;
   try {
     for (const vp of viewports) {
@@ -460,11 +465,19 @@ export async function capture(target, { outDir, viewports = VIEWPORTS, timeout =
       await settle(page);
       const shotFirst = path.join('shots', `${vp.name}-first.jpg`);
       const shotFull = path.join('shots', `${vp.name}-full.jpg`);
-      await page.screenshot({ path: path.join(outDir, shotFirst), type: 'jpeg', quality: 72 });
+      if (selector) {
+        const loc = page.locator(selector).first();
+        if (!(await loc.count())) { results.viewports.push({ ...vp, error: `selector not found: ${selector}` }); await ctx.close(); continue; }
+        await loc.scrollIntoViewIfNeeded().catch(() => {});
+        await page.waitForTimeout(300);
+        await loc.screenshot({ path: path.join(outDir, shotFirst), type: 'jpeg', quality: 80 }).catch(async () => { await page.screenshot({ path: path.join(outDir, shotFirst), type: 'jpeg', quality: 72 }); });
+      } else await page.screenshot({ path: path.join(outDir, shotFirst), type: 'jpeg', quality: 72 });
       const docH = await page.evaluate(() => document.documentElement.scrollHeight);
       await page.screenshot({ path: path.join(outDir, shotFull), type: 'jpeg', quality: 60, fullPage: true, clip: docH > 8000 ? { x: 0, y: 0, width: vp.width, height: 8000 } : undefined }).catch(async () => { await page.screenshot({ path: path.join(outDir, shotFull), type: 'jpeg', quality: 60 }); });
-      const metrics = await page.evaluate(collectMetrics, { mobile: vp.mobile });
-      const axe = await runAxe(page);
+      let metrics;
+      try { metrics = await page.evaluate(collectMetrics, { mobile: vp.mobile, selector }); }
+      catch (e) { results.viewports.push({ ...vp, error: String(e.message || e).slice(0, 160) }); await ctx.close(); continue; }
+      const axe = await runAxe(page, selector);
       if (!snapshotSaved) {
         // HTML snapshot (for mockups): absolute base so relative assets resolve.
         let html = await page.content();
@@ -484,7 +497,7 @@ export async function capture(target, { outDir, viewports = VIEWPORTS, timeout =
 
 /** Re-render a page with extra CSS injected and screenshot it. Used for mockups.
  *  `target` is the live URL (preferred: JS runs, lazy images and web fonts load) or a snapshot .html path. */
-export async function renderWithCss(target, css, { outPath, width = 1440, height = 900, fullPage = false, mobile = false, timeout = 45000 } = {}) {
+export async function renderWithCss(target, css, { outPath, width = 1440, height = 900, fullPage = false, mobile = false, timeout = 45000, selector = null } = {}) {
   const url = /^https?:\/\//i.test(target) ? target : pathToFileURL(path.resolve(target)).href;
   const browser = await chromium.launch();
   try {
@@ -496,6 +509,10 @@ export async function renderWithCss(target, css, { outPath, width = 1440, height
     await settle(page);
     if (css) await page.addStyleTag({ content: css });
     await page.waitForTimeout(400);
+    if (selector) {
+      const loc = page.locator(selector).first();
+      if (await loc.count()) { await loc.scrollIntoViewIfNeeded().catch(() => {}); await page.waitForTimeout(300); await loc.screenshot({ path: outPath, type: 'jpeg', quality: 80 }); await ctx.close(); return outPath; }
+    }
     const docH = await page.evaluate(() => document.documentElement.scrollHeight);
     await page.screenshot({ path: outPath, type: 'jpeg', quality: 75, fullPage, clip: fullPage ? { x: 0, y: 0, width, height: Math.min(8000, docH) } : undefined });
     await ctx.close();

@@ -7,7 +7,8 @@ import { renderWithCss, renderHtml } from './capture.mjs';
 import { redesign } from './judge.mjs';
 import { ENV_FILE } from './env.mjs';
 import { diffImages } from './diff.mjs';
-import { refreshProfile, loadProfile, describeProfile } from './taste.mjs';
+import { refreshProfile, loadProfile, describeProfile, explainProfile, setHypothesis } from './taste.mjs';
+import { homePage } from './home.mjs';
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.jpg': 'image/jpeg', '.png': 'image/png', '.md': 'text/markdown; charset=utf-8', '.css': 'text/css', '.txt': 'text/plain' };
 
@@ -15,7 +16,11 @@ function json(res, code, obj) { res.writeHead(code, { 'content-type': 'applicati
 function body(req) { return new Promise(r => { let b = ''; req.on('data', c => b += c); req.on('end', () => { try { r(JSON.parse(b || '{}')); } catch { r({}); } }); }); }
 function listReports() {
   if (!fs.existsSync(OUT_ROOT)) return [];
-  return fs.readdirSync(OUT_ROOT).filter(d => fs.existsSync(path.join(OUT_ROOT, d, 'report.html'))).map(d => { const ev = JSON.parse(fs.readFileSync(path.join(OUT_ROOT, d, 'evaluation.json'), 'utf8')); return { id: d, url: ev.summary?.url, title: ev.summary?.title, overall: ev.overall, mtime: fs.statSync(path.join(OUT_ROOT, d, 'report.html')).mtimeMs }; }).sort((a, b) => b.mtime - a.mtime);
+  return fs.readdirSync(OUT_ROOT).filter(d => fs.existsSync(path.join(OUT_ROOT, d, 'report.html'))).map(d => {
+    let ev; try { ev = JSON.parse(fs.readFileSync(path.join(OUT_ROOT, d, 'evaluation.json'), 'utf8')); } catch { return null; }
+    let dec = null; try { dec = JSON.parse(fs.readFileSync(path.join(OUT_ROOT, d, 'decisions.json'), 'utf8')); } catch {}
+    return { id: d, url: ev.summary?.url, title: ev.summary?.title, selector: ev.summary?.selector || null, overall: ev.overall, findings: ev.findings?.length || 0, decided: dec ? (dec.accepted?.length || 0) + (dec.vetoed?.length || 0) : 0, judged: !!ev.judge, mtime: fs.statSync(path.join(OUT_ROOT, d, 'report.html')).mtimeMs };
+  }).filter(Boolean).sort((a, b) => b.mtime - a.mtime);
 }
 function safeDir(id) { const d = path.join(OUT_ROOT, path.basename(String(id || ''))); if (!fs.existsSync(path.join(d, 'evaluation.json'))) throw new Error('unknown report ' + id); return d; }
 
@@ -30,9 +35,10 @@ export function serve({ port = 4310 } = {}) {
       }
       if (u.pathname === '/api/reports') return json(res, 200, listReports());
       if (u.pathname === '/api/analyze' && req.method === 'POST') {
-        const { url, judge } = await body(req);
+        const { url, judge, selector } = await body(req);
         if (!url) return json(res, 400, { error: 'url required' });
-        const r = await analyze(url, { runJudge: !!judge && !!process.env.ANTHROPIC_API_KEY });
+        const r = await analyze(url, { runJudge: !!judge && !!process.env.ANTHROPIC_API_KEY, selector: selector || null });
+        if (!r.capture.viewports.some(v => v.metrics)) return json(res, 400, { error: r.capture.viewports[0]?.error || 'capture failed' });
         return json(res, 200, { report: path.basename(r.outDir), href: `/out/${path.basename(r.outDir)}/report.html`, overall: r.evaluation.overall });
       }
       if (u.pathname === '/api/decisions' && req.method === 'POST') {
@@ -40,6 +46,20 @@ export function serve({ port = 4310 } = {}) {
         fs.writeFileSync(path.join(dir, 'decisions.json'), JSON.stringify({ accepted: b.accepted || [], vetoed: b.vetoed || [], notes: b.notes || {}, savedAt: new Date().toISOString() }, null, 1));
         const profile = refreshProfile(OUT_ROOT);
         return json(res, 200, { ok: true, profile: { observations: profile.observations, reports: profile.reports, usual: profile.usual, summary: describeProfile(profile) } });
+      }
+      if (u.pathname === '/api/report' && req.method === 'DELETE') {
+        const dir = safeDir(u.searchParams.get('id'));
+        fs.rmSync(dir, { recursive: true, force: true });
+        refreshProfile(OUT_ROOT);
+        return json(res, 200, { ok: true });
+      }
+      if (u.pathname === '/api/taste/explain' && req.method === 'POST') {
+        const profile = await explainProfile(OUT_ROOT, { log: console.error });
+        return json(res, 200, { ok: true, hypotheses: profile.hypotheses });
+      }
+      if (u.pathname === '/api/taste/hypothesis' && req.method === 'POST') {
+        const b = await body(req);
+        return json(res, 200, { ok: true, hypothesis: setHypothesis(OUT_ROOT, b.id, b.status === 'confirmed' ? 'confirmed' : 'rejected') });
       }
       if (u.pathname === '/api/taste') {
         const profile = loadProfile(OUT_ROOT) || refreshProfile(OUT_ROOT);
@@ -60,8 +80,9 @@ export function serve({ port = 4310 } = {}) {
           // Re-render the unchanged page too, in the same session, so before/after differ only by the CSS
           const before = path.join(dir, 'shots', `mock-${vp.name}-before${full ? '-full' : ''}.jpg`);
           const after = path.join(dir, 'shots', `mock-${vp.name}${full ? '-full' : ''}.jpg`);
-          await renderWithCss(src, '', { outPath: before, width: vp.width, height: vp.height, mobile: !!vp.mobile, fullPage: full });
-          await renderWithCss(src, css, { outPath: after, width: vp.width, height: vp.height, mobile: !!vp.mobile, fullPage: full });
+          const selector = cap.selector || null;
+          await renderWithCss(src, '', { outPath: before, width: vp.width, height: vp.height, mobile: !!vp.mobile, fullPage: full, selector });
+          await renderWithCss(src, css, { outPath: after, width: vp.width, height: vp.height, mobile: !!vp.mobile, fullPage: full, selector });
           const d = await diffImages(before, after);
           pairs.push({ label: vp.name + (full ? ' · full page' : ''), width: vp.width, height: vp.height, before: `/out/${path.basename(dir)}/shots/${path.basename(before)}`, after: `/out/${path.basename(dir)}/shots/${path.basename(after)}`, changedPct: d.changedPct });
         }
@@ -89,10 +110,10 @@ export function serve({ port = 4310 } = {}) {
         return json(res, 200, { ok: true });
       }
       // static
-      if (u.pathname === '/' ) {
-        const rows = listReports().map(r => `<li><a href="/out/${r.id}/report.html">${r.title || r.url}</a> <span style="color:#666">${r.url} · ${r.overall}/10</span></li>`).join('') || '<li>No reports yet.</li>';
+      if (u.pathname === '/') {
+        const profile = loadProfile(OUT_ROOT) || refreshProfile(OUT_ROOT);
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-        return res.end(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>design-critic</title><body style="font:16px/1.5 -apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:800px;margin:48px auto;padding:0 24px;color:#161616;background:#fff"><h1 style="font-family:Iowan Old Style,Palatino,Georgia,serif;font-weight:600">design-critic</h1><form onsubmit="event.preventDefault();const b=this.querySelector('button');b.disabled=true;b.textContent='Analysing… (1–3 min)';fetch('/api/analyze',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({url:this.url.value,judge:this.judge.checked})}).then(r=>r.json()).then(j=>{if(j.href)location.href=j.href;else{alert(j.error||'failed');b.disabled=false;b.textContent='Analyse'}})"><label>URL or local path<br><input name="url" required style="width:100%;font:inherit;padding:8px;border:1px solid #ccc" placeholder="https://…"></label><p><label><input type="checkbox" name="judge" ${process.env.ANTHROPIC_API_KEY ? '' : 'disabled'}> also run the juror pass ${process.env.ANTHROPIC_API_KEY ? '' : '(set ANTHROPIC_API_KEY to enable)'}</label></p><button style="font:inherit;padding:8px 14px;background:#161616;color:#fff;border:0">Analyse</button></form><h2 style="font-family:Iowan Old Style,Palatino,Georgia,serif;font-weight:600;margin-top:40px">Reports</h2><ul>${rows}</ul></body></html>`);
+        return res.end(homePage({ reports: listReports(), profile, profileSummary: describeProfile(profile), judgeEnabled: !!process.env.ANTHROPIC_API_KEY }));
       }
       if (u.pathname.startsWith('/out/')) {
         const rel = decodeURIComponent(u.pathname.slice(5));
