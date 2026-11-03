@@ -70,8 +70,13 @@ same tells. impeccable itself credits Anthropic's frontend-design skill as its o
 ## DESIGN.md — Google Labs (Apache 2.0) and awesome-design-md — VoltAgent
 https://github.com/google-labs-code/design.md · https://github.com/VoltAgent/awesome-design-md
 
-Read, not yet used. The token-plus-rationale format is the planned output format for "what the page
-should become". Noted here so the lineage is clear if that lands.
+**Used as an output format.** `node cli.mjs design-md <report>` (and the **Generate DESIGN.md** button)
+writes a DESIGN.md in the Stitch `alpha` format: YAML front matter with `colors`, `typography`, `spacing`,
+`rounded` and `components` tokens (including `{token.ref}` references), followed by the eight prose
+sections in the spec's order (Overview, Colors, Typography, Layout, Elevation & Depth, Shapes, Components,
+Do's and Don'ts). The token values are ours (measured from the page and moved by accepted findings); the
+schema, section order, naming conventions and the idea of tokens-plus-rationale are theirs. awesome-design-md
+was read as a reference for what good prose in this format looks like; nothing was copied from it.
 
 ## Research papers
 

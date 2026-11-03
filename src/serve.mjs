@@ -9,6 +9,7 @@ import { ENV_FILE } from './env.mjs';
 import { diffImages } from './diff.mjs';
 import { refreshProfile, loadProfile, describeProfile, explainProfile, setHypothesis } from './taste.mjs';
 import { homePage } from './home.mjs';
+import { buildDesignMd } from './designmd.mjs';
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.jpg': 'image/jpeg', '.png': 'image/png', '.md': 'text/markdown; charset=utf-8', '.css': 'text/css', '.txt': 'text/plain' };
 
@@ -68,6 +69,12 @@ export function serve({ port = 4310 } = {}) {
       if (u.pathname === '/api/prompt' && req.method === 'POST') {
         const b = await body(req); const dir = safeDir(b.report); const { ev } = loadReport(dir);
         return json(res, 200, { prompt: buildPrompt(ev, { accepted: b.accepted || [], vetoed: b.vetoed || [], notes: b.notes || {}, url: ev.summary?.url }) });
+      }
+      if (u.pathname === '/api/designmd' && req.method === 'POST') {
+        const b = await body(req); const dir = safeDir(b.report); const { cap, ev } = loadReport(dir);
+        const text = buildDesignMd(ev, cap, { accepted: b.accepted || [], vetoed: b.vetoed || [], notes: b.notes || {} });
+        fs.writeFileSync(path.join(dir, 'DESIGN.md'), text);
+        return json(res, 200, { text, path: `/out/${path.basename(dir)}/DESIGN.md` });
       }
       if (u.pathname === '/api/mockup' && req.method === 'POST') {
         const b = await body(req); const dir = safeDir(b.report); const { cap, ev } = loadReport(dir);

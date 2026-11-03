@@ -77,7 +77,16 @@ Findings are numbered per report (F001…) for the UI, but every finding also ca
 (`hierarchy.content-chopped-into-equal-cards`). Learning across sites is impossible without it. Titles
 that embed numbers or font names are normalised so the id stays the same.
 
-## 11. Things we chose not to do (yet)
+## 11. DESIGN.md is the third output, and it is deterministic
+
+A prompt is consumed once; a DESIGN.md lives in the repo and keeps every later change on-system, which is
+what "continuity" needs. We generate it in Google Stitch's format rather than inventing one, because
+coding agents already read it and the linter exists. It is built without a model: measured tokens, moved by
+the accepted findings, with vetoes and preferences as Do's and Don'ts. Where a decision has not been made
+(an accent, a typeface) the file says `TODO` and lists it under Open decisions rather than inventing a
+value, because an invented value would be exactly the default the tool exists to catch.
+
+## 12. Things we chose not to do (yet)
 
 - **Copy impeccable's rules.** We couldn't run it in the build environment and didn't want to transcribe
   someone else's rule list by hand. Overlap is convergence.
@@ -86,7 +95,7 @@ that embed numbers or font names are normalised so the id stays the same.
   weights have been calibrated on more than a fixture and one production site.
 - **Average taste across users.** See decision 5.
 
-## 12. Known weaknesses, stated on purpose
+## 13. Known weaknesses, stated on purpose
 
 - The eyebrow-label detector over-counts (the source study has the same caveat). Low weight.
 - Automated accessibility covers roughly 30% of WCAG. The report says so.

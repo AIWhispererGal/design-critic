@@ -114,7 +114,11 @@ matter inside a component: contrast, names, targets, typeface, tells, cards, rad
    findings' CSS applied, shown as a drag-to-compare before/after slider with the percentage of pixels that
    changed and the list of which accepted items were (and were not) expressible as CSS. **Mock up full redesign** (needs a key): a standalone
    HTML rebuild from the page's real content, honouring accepts and vetoes.
-7. **Learning from decisions.** Every accept/veto is an observation. `node cli.mjs taste` builds
+7. **Generate DESIGN.md**: the same intent as a design-system file in Google Stitch's DESIGN.md format
+   (YAML tokens + rationale). Measured tokens moved by what you accepted; vetoes become Don'ts; undecided
+   things (an accent, a typeface) are marked `TODO` under Open decisions rather than invented. Drop it in the
+   project root so later work stays on-system. Validate with `npx @google/design.md lint DESIGN.md`.
+8. **Learning from decisions.** Every accept/veto is an observation. `node cli.mjs taste` builds
    `out/taste-profile.json`: accept rate per rule and per parameter, and which page/finding features shift
    your accept rate away from your base rate (dark pages, phone-only findings, juror taste calls, severity…).
    Rules you decide the same way at least twice are marked "you usually accept/veto this" on new reports,
@@ -131,6 +135,7 @@ node cli.mjs analyze <url|file> [--out dir] [--judge] [--selector ".pricing"]
 node cli.mjs check <url|file> [--min-overall 7] [--min accessibility=8,responsive=7] [--max P0=0,P1=2] [--json] [--github] [--selector ...]
 node cli.mjs serve [--port 4310]
 node cli.mjs prompt <report> [--all | --p01 | --accept F001,F002] [--veto F003]
+node cli.mjs design-md <report> [--all | --p01 | --accept ...]     # DESIGN.md (Stitch format)
 node cli.mjs mockup <report> [--all | --p01 | --accept ...] [--viewport phone] [--full]
 node cli.mjs judge <report>                   # needs ANTHROPIC_API_KEY (model: DC_MODEL, default claude-opus-5-5)
 node cli.mjs merge-judge <report> <judge.json>
@@ -181,6 +186,7 @@ src/capture.mjs    Playwright capture + in-page measurement + axe + snapshot + m
 src/rules.mjs      parameters, findings, scores
 src/judge.mjs      juror brief, Claude call, review packet, merge, full redesign
 src/prompt.mjs     hand-off prompt builder (isomorphic; also runs in the report)
+src/designmd.mjs   DESIGN.md generator (Google Stitch format)
 src/report.mjs     report.html generator
 src/home.mjs       the server's front page (analyse, reports, taste, how-to)
 src/theme.mjs      the one stylesheet both pages share

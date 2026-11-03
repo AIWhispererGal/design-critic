@@ -93,11 +93,12 @@ ${judgeBlock}
 
 <section id="actions">
   <h2>Hand off</h2>
-  <p class="muted">Two outputs. The prompt is for whatever coding AI owns the codebase. <b>Mock up accepted changes</b> re-renders the live page with only your accepted items applied as CSS; nothing else changes. <b>Mock up full redesign</b> (needs a key) rebuilds the page from its content around one idea, honouring accepts and vetoes; it does not need everything accepted. Hover the buttons for details.</p>
+  <p class="muted">Three outputs. The prompt is for whatever coding AI owns the codebase. DESIGN.md is the same intent as a token file that lives in the repo and keeps later work on-system. <b>Mock up accepted changes</b> re-renders the live page with only your accepted items applied as CSS; nothing else changes. <b>Mock up full redesign</b> (needs a key) rebuilds the page from its content around one idea, honouring accepts and vetoes; it does not need everything accepted. Hover the buttons for details.</p>
   <div class="toolbar" style="position:static;border:0">
     <button class="primary" id="gen-prompt">Generate coding-AI prompt</button>
     <button id="copy-prompt">Copy</button>
     <button id="dl-prompt">Download .md</button>
+    <button id="gen-design" title="Writes a DESIGN.md (Google Stitch format: YAML tokens + rationale) describing what the page should become: measured tokens moved by your accepted items, vetoes as Don'ts. Drop it in the project root; coding agents read it.">Generate DESIGN.md</button>
     <button id="mock-css" title="Re-renders the live page with ONLY the accepted suggestions applied as CSS overrides. Everything you did not accept stays exactly as it is. Vetoed and undecided items are untouched.">Mock up accepted changes</button>
     <label class="muted" style="font-size:.9rem" title="By default the mockup shows only the first screen (before scrolling). Tick this to render the whole page top to footer, so changes further down (card rows, section spacing, footer) are visible."><input type="checkbox" id="mock-fullpage"> whole page, not just the first screen</label>
     <button id="mock-full" title="Asks the model (needs ANTHROPIC_API_KEY) to rebuild the whole page from its real content around one idea, honouring every accepted item and never doing anything you vetoed. It does not require accepting everything; undecided items are left to the model's judgement.">Mock up full redesign</button>
@@ -167,8 +168,20 @@ document.getElementById('gen-prompt').onclick = () => {
   document.getElementById('prompt').value = buildPrompt(E, { accepted: state.accepted, vetoed: state.vetoed, notes: state.notes, url: DATA.url });
   status('Prompt generated for ' + state.accepted.length + ' accepted change(s), ' + state.vetoed.length + ' veto(es).');
 };
+document.getElementById('gen-design').onclick = async () => {
+  if (!serverOk) { status('DESIGN.md needs the local server (node cli.mjs serve), or run: node cli.mjs design-md ' + DATA.reportId); return; }
+  status('Writing DESIGN.md…');
+  try {
+    const r = await fetch('/api/designmd', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ report: DATA.reportId, accepted: state.accepted, vetoed: state.vetoed, notes: state.notes }) });
+    const j = await r.json(); if (!r.ok) throw new Error(j.error || r.statusText);
+    document.getElementById('prompt').value = j.text;
+    status('DESIGN.md written to out/' + DATA.reportId + '/DESIGN.md (also shown below; Copy and Download work on it). Built from ' + state.accepted.length + ' accepted and ' + state.vetoed.length + ' vetoed item(s).');
+    document.getElementById('dl-prompt').dataset.name = 'DESIGN.md';
+  } catch (e) { status('Failed: ' + e.message); }
+};
+document.getElementById('gen-prompt').addEventListener('click', () => { document.getElementById('dl-prompt').dataset.name = ''; });
 document.getElementById('copy-prompt').onclick = async () => { const t = document.getElementById('prompt').value; if (!t) return status('Nothing to copy yet.'); try { await navigator.clipboard.writeText(t); status('Copied.'); } catch { status('Clipboard blocked; select the text and copy manually.'); } };
-document.getElementById('dl-prompt').onclick = () => { const t = document.getElementById('prompt').value; if (!t) return status('Generate the prompt first.'); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([t], { type: 'text/markdown' })); a.download = 'design-upgrade-brief.md'; a.click(); };
+document.getElementById('dl-prompt').onclick = () => { const t = document.getElementById('prompt').value; if (!t) return status('Generate the prompt first.'); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([t], { type: 'text/markdown' })); a.download = document.getElementById('dl-prompt').dataset.name || 'design-upgrade-brief.md'; a.click(); };
 document.getElementById('export').onclick = () => {
   const profile = { report: DATA.reportId, url: DATA.url, exportedAt: new Date().toISOString(), accepted: state.accepted.map(id => E.findings.find(f => f.id === id)).filter(Boolean).map(f => ({ id: f.id, param: f.param, title: f.title, note: state.notes[f.id] || '' })), vetoed: state.vetoed.map(id => E.findings.find(f => f.id === id)).filter(Boolean).map(f => ({ id: f.id, param: f.param, title: f.title, note: state.notes[f.id] || '' })) };
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(profile, null, 1)], { type: 'application/json' })); a.download = 'decisions-' + DATA.reportId + '.json'; a.click();

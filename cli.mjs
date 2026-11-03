@@ -4,6 +4,7 @@
 //   node cli.mjs check <url|file> [--min-overall 7] [--min accessibility=8] [--max P0=0] [--json] [--github]
 //   node cli.mjs serve [--port 4310]
 //   node cli.mjs prompt <reportDir> [--accept F001,F002 | --all | --p01] [--veto F003]
+//   node cli.mjs design-md <reportDir> [--all | --p01 | --accept ...]   → DESIGN.md (Stitch format)
 //   node cli.mjs mockup <reportDir> [--accept ...] [--viewport laptop|phone]
 //   node cli.mjs judge <reportDir>              (needs ANTHROPIC_API_KEY)
 //   node cli.mjs merge-judge <reportDir> <judge.json>
@@ -18,7 +19,7 @@ import { refreshProfile, loadProfile, describeProfile, explainProfile, setHypoth
 const [, , cmd, ...rest] = process.argv;
 const flags = {}; const pos = [];
 for (let i = 0; i < rest.length; i++) { if (rest[i].startsWith('--')) { const k = rest[i].slice(2); const v = rest[i + 1] && !rest[i + 1].startsWith('--') ? rest[++i] : true; flags[k] = v; } else pos.push(rest[i]); }
-const KNOWN = { analyze: ['out', 'judge', 'selector'], check: ['out', 'selector', 'min-overall', 'min', 'max', 'json', 'github'], serve: ['port'], prompt: ['accept', 'veto', 'all', 'p01'], mockup: ['accept', 'veto', 'all', 'p01', 'viewport', 'full'], judge: [], 'merge-judge': [], taste: ['explain', 'confirm', 'reject', 'json'] };
+const KNOWN = { 'design-md': ['accept', 'veto', 'all', 'p01'], analyze: ['out', 'judge', 'selector'], check: ['out', 'selector', 'min-overall', 'min', 'max', 'json', 'github'], serve: ['port'], prompt: ['accept', 'veto', 'all', 'p01'], mockup: ['accept', 'veto', 'all', 'p01', 'viewport', 'full'], judge: [], 'merge-judge': [], taste: ['explain', 'confirm', 'reject', 'json'] };
 for (const k of Object.keys(flags)) if (KNOWN[cmd] && !KNOWN[cmd].includes(k)) console.error(`warning: --${k} is not used by "${cmd}"${k === 'judge' ? ' (put --judge on "analyze", or run: node cli.mjs judge <report>)' : ''}`);
 const resolveDir = d => fs.existsSync(path.join(d, 'evaluation.json')) ? d : path.join(OUT_ROOT, d);
 
@@ -69,6 +70,16 @@ function pickIds(ev, decisions) {
       fs.writeFileSync(path.join(dir, 'design-upgrade-brief.md'), out);
       console.log(out);
       console.error(`\nSaved to ${path.join(dir, 'design-upgrade-brief.md')}`);
+      break;
+    }
+    case 'design-md': {
+      const dir = resolveDir(pos[0]); const { cap, ev, decisions } = loadReport(dir);
+      const d = pickIds(ev, decisions);
+      const { buildDesignMd } = await import('./src/designmd.mjs');
+      const text = buildDesignMd(ev, cap, d);
+      fs.writeFileSync(path.join(dir, 'DESIGN.md'), text);
+      console.log(text);
+      console.error(`\nSaved to ${path.join(dir, 'DESIGN.md')} (${d.accepted.length} accepted, ${d.vetoed.length} vetoed). Validate with: npx @google/design.md lint ${path.join(dir, 'DESIGN.md')}`);
       break;
     }
     case 'mockup': {
