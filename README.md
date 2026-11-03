@@ -1,3 +1,8 @@
+THIS IS ONE OF THOSE REPOS WHERE YOU NEED TO: 
+```
+npx playwright install chromium
+```
+
 # design-critic
 
 Evaluate a website or web app's design the way a jury would, with measurements instead of vibes.
