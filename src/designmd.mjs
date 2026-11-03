@@ -31,7 +31,7 @@ export function buildDesignMd(ev, cap, { accepted = [], vetoed = [], notes = {} 
   if (has('purple-indigo-to-blue-gradient') || has('too-many-accent-hues')) { tertiary = '#1f4e5f'; todo.push('colors.tertiary: placeholder. Choose one accent from the subject\'s own material (a product colour, a place, a material) and replace it.'); colourNote = 'The accent below is a placeholder; the gradient palette was rejected and no subject-derived colour has been chosen yet.'; }
   if (!tertiary) { tertiary = dark ? '#e8e2d6' : '#161616'; colourNote = colourNote || 'Monochrome: there is no accent. Hierarchy comes from scale and space; if an accent is added later it gets exactly one job.'; }
   if (has('tinted-near-black') ) { todo.push('colors.surface: the tinted near-black was rejected; decide the ground on purpose (true black, a palette-derived dark, or go light).'); }
-  const colors = { surface, 'on-surface': onSurface, secondary, tertiary };
+  const colors = { primary: onSurface, secondary, tertiary, surface };
 
   // ---------- typography ----------
   const fonts = Object.entries(M.fonts || {}).sort((a, b) => b[1] - a[1]);
@@ -96,7 +96,7 @@ export function buildDesignMd(ev, cap, { accepted = [], vetoed = [], notes = {} 
   L.push('## Colors', '');
   L.push(colourNote || `One ground, one ink, one secondary, one accent with a single job.`, '');
   L.push(`- **Surface (${surface}):** the page ground${dark ? ' (dark)' : ''}.`);
-  L.push(`- **On-surface (${onSurface}):** running text and headlines, ${contrast(onSurface, surface).toFixed(1)}:1 against the surface.`);
+  L.push(`- **Primary (${onSurface}):** the ink: running text and headlines, ${contrast(onSurface, surface).toFixed(1)}:1 against the surface.`);
   L.push(`- **Secondary (${secondary}):** captions and metadata only, never running text; ${contrast(secondary, surface).toFixed(1)}:1 against the surface (WCAG AA needs 4.5:1).`);
   L.push(`- **Tertiary (${tertiary}):** the sole interaction colour: primary buttons, focus rings, one highlight. Nowhere else.`, '');
 
@@ -119,7 +119,7 @@ export function buildDesignMd(ev, cap, { accepted = [], vetoed = [], notes = {} 
 
   L.push('## Components', '');
   L.push(`- **Primary button:** ${components['button-primary'].backgroundColor} fill, ${components['button-primary'].height} tall, ${components['button-primary'].rounded} corners, label names the outcome ("Start free trial", not "Get started →"). One per screen.`);
-  L.push(`- **Secondary action:** a text link in on-surface, underlined on hover; never a second filled button beside the primary.`);
+  L.push(`- **Secondary action:** a text link in the primary ink, underlined on hover; never a second filled button beside the primary.`);
   L.push(`- **Focus:** 2px ${tertiary} outline, 2px offset, on \`:focus-visible\`.`);
   L.push(`- **Tap targets:** 44px minimum on touch; 24px absolute floor.`, '');
 
