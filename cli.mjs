@@ -4,6 +4,8 @@
 //   node cli.mjs check <url|file> [--min-overall 7] [--min accessibility=8] [--max P0=0] [--json] [--github]
 //   node cli.mjs serve [--port 4310]
 //   node cli.mjs prompt <reportDir> [--accept F001,F002 | --all | --p01] [--veto F003]
+//   node cli.mjs studio "<brief>" [--rounds 3] [--from <url|file>] [--pause] [--min-gain 0.2]   (needs key)
+//   node cli.mjs studio --resume <studio-name>
 //   node cli.mjs design-md <reportDir> [--all | --p01 | --accept ...]   → DESIGN.md (Stitch format)
 //   node cli.mjs mockup <reportDir> [--accept ...] [--viewport laptop|phone]
 //   node cli.mjs judge <reportDir>              (needs ANTHROPIC_API_KEY)
@@ -19,7 +21,7 @@ import { refreshProfile, loadProfile, describeProfile, explainProfile, setHypoth
 const [, , cmd, ...rest] = process.argv;
 const flags = {}; const pos = [];
 for (let i = 0; i < rest.length; i++) { if (rest[i].startsWith('--')) { const k = rest[i].slice(2); const v = rest[i + 1] && !rest[i + 1].startsWith('--') ? rest[++i] : true; flags[k] = v; } else pos.push(rest[i]); }
-const KNOWN = { 'design-md': ['accept', 'veto', 'all', 'p01'], analyze: ['out', 'judge', 'selector'], check: ['out', 'selector', 'min-overall', 'min', 'max', 'json', 'github'], serve: ['port'], prompt: ['accept', 'veto', 'all', 'p01'], mockup: ['accept', 'veto', 'all', 'p01', 'viewport', 'full'], judge: [], 'merge-judge': [], taste: ['explain', 'confirm', 'reject', 'json'] };
+const KNOWN = { studio: ['rounds', 'from', 'pause', 'resume', 'min-gain'], 'design-md': ['accept', 'veto', 'all', 'p01'], analyze: ['out', 'judge', 'selector'], check: ['out', 'selector', 'min-overall', 'min', 'max', 'json', 'github'], serve: ['port'], prompt: ['accept', 'veto', 'all', 'p01'], mockup: ['accept', 'veto', 'all', 'p01', 'viewport', 'full'], judge: [], 'merge-judge': [], taste: ['explain', 'confirm', 'reject', 'json'] };
 for (const k of Object.keys(flags)) if (KNOWN[cmd] && !KNOWN[cmd].includes(k)) console.error(`warning: --${k} is not used by "${cmd}"${k === 'judge' ? ' (put --judge on "analyze", or run: node cli.mjs judge <report>)' : ''}`);
 const resolveDir = d => fs.existsSync(path.join(d, 'evaluation.json')) ? d : path.join(OUT_ROOT, d);
 
@@ -70,6 +72,16 @@ function pickIds(ev, decisions) {
       fs.writeFileSync(path.join(dir, 'design-upgrade-brief.md'), out);
       console.log(out);
       console.error(`\nSaved to ${path.join(dir, 'design-upgrade-brief.md')}`);
+      break;
+    }
+    case 'studio': {
+      const { studio } = await import('./src/studio.mjs');
+      if (!flags.resume && !pos[0]) throw new Error('usage: studio "<brief>" [--rounds 3] [--from <url|file>] [--pause]   or   studio --resume <studio-name>');
+      const r = await studio(pos.join(' '), { rounds: +(flags.rounds || 3), from: flags.from || null, pause: !!flags.pause, resume: flags.resume || null, minGain: flags['min-gain'] != null ? +flags['min-gain'] : 0.2 });
+      const last = r.state.rounds[r.state.rounds.length - 1];
+      console.log(`\nCrit log: ${r.base}.md`);
+      console.log(r.state.rounds.map(x => `  round ${x.r}: ${x.overall}/10${x.intent ? '  — ' + x.intent.slice(0, 90) : ''}`).join('\n'));
+      console.log(r.paused ? `Paused. Review ${last.report} through \`node cli.mjs serve\`, then: node cli.mjs studio --resume ${path.basename(r.base)}` : `${r.state.stoppedBecause}. Final page: ${path.join(path.basename(r.base) + '-r' + last.r, 'index.html')}`);
       break;
     }
     case 'design-md': {

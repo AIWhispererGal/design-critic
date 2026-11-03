@@ -4,7 +4,8 @@ import { BASE_CSS } from './theme.mjs';
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const when = ms => { const d = new Date(ms); return d.toISOString().slice(0, 10) + ' ' + d.toTimeString().slice(0, 5); };
 
-export function homePage({ reports, profile, profileSummary, judgeEnabled }) {
+export function homePage({ reports, studios = [], profile, profileSummary, judgeEnabled }) {
+  const studioRows = studios.map(st => `<li class="hyp"><b>${esc(st.brief.slice(0, 120))}</b><br><span class="small">${st.rounds.map((o, i) => `r${i} ${o}`).join(' → ')} · ${esc(st.stopped)} · <a href="${st.md}">crit log</a></span></li>`).join('');
   const rows = reports.map(r => `
     <li class="report-row">
       <a class="thumb" href="/out/${esc(r.id)}/report.html"><img src="/out/${esc(r.id)}/shots/laptop-first.jpg" alt="" loading="lazy"></a>
@@ -72,6 +73,8 @@ ul.hyps{list-style:none;margin:0;padding:0}li.hyp{padding:12px 0;border-bottom:1
   ${reports.length ? `<ol class="reports">${rows}</ol>` : '<p class="muted">None yet. Analyse something above, or from the terminal: <code>node cli.mjs analyze https://example.com</code></p>'}
 </section>
 
+${studios.length ? `<section id="studio"><h2>Studio</h2><p class="muted">Art-school loops: a student model builds from a brief, the critic reviews, the student revises with its own notes in hand. Each round's report is in the list above.</p><ul class="hyps">${studioRows}</ul></section>` : ''}
+
 <section id="taste">
   <h2>What your decisions say</h2>
   <p class="muted" id="taste-summary">${esc(profileSummary || 'No decisions recorded yet. Open a report and accept or veto a few suggestions; this fills in as you go.')}</p>
@@ -85,6 +88,7 @@ ul.hyps{list-style:none;margin:0;padding:0}li.hyp{padding:12px 0;border-bottom:1
     <div><h3>Before a coding AI touches the UI</h3><p>Build on a dev server, analyse <code>http://localhost:3000</code>, veto what you disagree with, press <b>Generate coding-AI prompt</b>, paste it back. Repeat two or three times. Each round starts closer to you.</p></div>
     <div><h3>As a gate in CI</h3><p>No key needed. <code>node cli.mjs check &lt;url&gt; --min-overall 7 --max P0=0 --min accessibility=8</code> exits 2 on failure; <code>--json</code> for machines, <code>--github</code> for annotations.</p></div>
     <div><h3>With a client or a team</h3><p>Run it on their current site as the first meeting. A measurement lands differently than an opinion. Their vetoes become their taste profile, which is what every agency rebuilds by hand over six weeks of revisions.</p></div>
+    <div><h3>Studio: the art-school loop</h3><p>With a key: <code>node cli.mjs studio "a site for a 14-room guesthouse on the Ligurian coast" --rounds 3 --pause</code>. The student builds, the critic reviews, your usual decisions and the floor are applied, the student revises with its own intent and reflection in hand. <code>--pause</code> lets you step in as the teacher between rounds. A crit log records every round.</p></div>
     <div><h3>One component at a time</h3><p>Put a selector in the box above (or <code>--selector ".pricing"</code>). Page-level rules switch off, the screenshot is of the element, and the juror sees only that. That's how it fits daily work rather than audits.</p></div>
   </div>
   <p class="small" style="margin-top:24px">Full guide, credits and the reasoning behind the tool: <a href="https://github.com/AIWhispererGal/design-critic#readme">README</a> · <a href="https://github.com/AIWhispererGal/design-critic/blob/main/CREDITS.md">CREDITS</a> · <a href="https://github.com/AIWhispererGal/design-critic/blob/main/DECISIONS.md">DECISIONS</a></p>

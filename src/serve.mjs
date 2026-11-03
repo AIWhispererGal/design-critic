@@ -120,7 +120,8 @@ export function serve({ port = 4310 } = {}) {
       if (u.pathname === '/') {
         const profile = loadProfile(OUT_ROOT) || refreshProfile(OUT_ROOT);
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-        return res.end(homePage({ reports: listReports(), profile, profileSummary: describeProfile(profile), judgeEnabled: !!process.env.ANTHROPIC_API_KEY }));
+        const studios = fs.existsSync(OUT_ROOT) ? fs.readdirSync(OUT_ROOT).filter(f => /^studio-.*\.json$/.test(f)).map(f => { try { const st = JSON.parse(fs.readFileSync(path.join(OUT_ROOT, f), 'utf8')); return { name: f.replace(/\.json$/, ''), brief: st.brief, rounds: st.rounds.map(x => x.overall), stopped: st.stoppedBecause || (st.pausedAt != null ? `paused after round ${st.pausedAt}` : 'running'), md: `/out/${f.replace(/\.json$/, '.md')}` }; } catch { return null; } }).filter(Boolean) : [];
+        return res.end(homePage({ reports: listReports(), studios, profile, profileSummary: describeProfile(profile), judgeEnabled: !!process.env.ANTHROPIC_API_KEY }));
       }
       if (u.pathname.startsWith('/out/')) {
         const rel = decodeURIComponent(u.pathname.slice(5));

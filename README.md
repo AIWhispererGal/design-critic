@@ -95,6 +95,35 @@ rhythm, creativity) switch off and their parameters show as unscored; the screen
 are of the element only; mockups re-render just that element. The rules that remain are the ones that
 matter inside a component: contrast, names, targets, typeface, tells, cards, radii, motion, overflow.
 
+### 5. Studio: the art-school loop
+
+With a key, one command runs the whole critique cycle:
+
+```
+node cli.mjs studio "a site for a 14-room family guesthouse on the Ligurian coast" --rounds 3 --pause
+```
+
+- **Round 0.** The student model builds a page from the brief and writes an intent: the idea in one
+  sentence and the one place it spent boldness. (Or start from an existing page with `--from <url|file>`.)
+- **Critique.** The critic measures it and the juror reads it. The quality floor and your usual decisions
+  are applied automatically; juror taste calls are left for you.
+- **Revision.** The student gets the brief built from that critique, plus its own earlier intents and
+  reflections and the score history. It revises, writes a new intent, and a reflection: what it would
+  change next and what it is unsure about.
+- **Stop.** After `--rounds`, or earlier when the score stalls (`--min-gain`, default 0.2).
+- **Crit log.** `out/studio-<brief>-<time>.md`: a score table across rounds and, per round, the student's
+  intent, the juror's read, what works, the tells, the top findings, and the student's reflection. Every
+  round's full report is in the list on the home page.
+
+`--pause` stops after each round so you can be the teacher: open that round's report, accept/veto, add
+notes, then `node cli.mjs studio --resume <studio-name>`. Your decisions override the automatic ones for
+the next revision. Automatic decisions are written to `auto-decisions.json`, never `decisions.json`, so
+the machine's choices never leak into your taste profile; only your clicks do.
+
+Expect the first runs to produce pages that pass every rule and still bore you. That is the point where
+your notes matter more than the scores. (taste-skill's own loop lost to the no-skill baseline for three
+rounds before it won.)
+
 ## The loop
 
 1. `analyze` captures the page at four viewports (screenshots + an HTML snapshot), runs axe-core, and
@@ -136,6 +165,8 @@ node cli.mjs check <url|file> [--min-overall 7] [--min accessibility=8,responsiv
 node cli.mjs serve [--port 4310]
 node cli.mjs prompt <report> [--all | --p01 | --accept F001,F002] [--veto F003]
 node cli.mjs design-md <report> [--all | --p01 | --accept ...]     # DESIGN.md (Stitch format)
+node cli.mjs studio "<brief>" [--rounds 3] [--from <url|file>] [--pause] [--min-gain 0.2]   # needs key
+node cli.mjs studio --resume <studio-name>
 node cli.mjs mockup <report> [--all | --p01 | --accept ...] [--viewport phone] [--full]
 node cli.mjs judge <report>                   # needs ANTHROPIC_API_KEY (model: DC_MODEL, default claude-opus-5-5)
 node cli.mjs merge-judge <report> <judge.json>
@@ -187,6 +218,7 @@ src/rules.mjs      parameters, findings, scores
 src/judge.mjs      juror brief, Claude call, review packet, merge, full redesign
 src/prompt.mjs     hand-off prompt builder (isomorphic; also runs in the report)
 src/designmd.mjs   DESIGN.md generator (Google Stitch format)
+src/studio.mjs     the art-school loop: student builds, critic reviews, student revises; crit log
 src/report.mjs     report.html generator
 src/home.mjs       the server's front page (analyse, reports, taste, how-to)
 src/theme.mjs      the one stylesheet both pages share
@@ -197,6 +229,8 @@ src/diff.mjs       pixel diff between two screenshots (for the mockup readout)
 src/env.mjs        .env loader
 fixtures/slop.html a deliberately generic page for testing (scores 5.7; accessibility, AI-look, responsive all 0)
 test/ui-smoke.mjs  drives the report UI end to end against a running server
+test/home-smoke.mjs drives the home page and a scoped mockup
+test/studio-mock.mjs runs the studio loop with a fake student (no key needed)
 RESEARCH.md        survey of existing tools, the design literature, and AI-judge reliability
 CREDITS.md         what was taken from whom, with licences
 DECISIONS.md       why it is built this way, and what was deliberately left out

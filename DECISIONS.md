@@ -86,7 +86,21 @@ the accepted findings, with vetoes and preferences as Do's and Don'ts. Where a d
 (an accent, a typeface) the file says `TODO` and lists it under Open decisions rather than inventing a
 value, because an invented value would be exactly the default the tool exists to catch.
 
-## 12. Things we chose not to do (yet)
+## 12. The studio loop keeps two notebooks and never mixes them
+
+The owner's notebook is the taste profile, built only from their clicks. The student's notebook is its
+own intents and reflections, fed back into every revision. In the studio loop the machine decides most
+findings automatically (quality floor plus the owner's usual decisions), and those decisions are written
+to `auto-decisions.json`, not `decisions.json`, so they never train the profile. Juror taste calls are
+left undecided for the owner. `--pause` is how the owner steps in; when they do, their decisions win.
+The loop also stops itself when the score stalls, because a loop that runs to the round limit regardless
+is just a way to spend tokens on the same page.
+
+The student and the juror are both the same model family, so the loop can flatter itself. The
+deterministic rules and the owner's vetoes are the check on that, and the crit log is what makes the
+self-flattery visible after the fact.
+
+## 13. Things we chose not to do (yet)
 
 - **Copy impeccable's rules.** We couldn't run it in the build environment and didn't want to transcribe
   someone else's rule list by hand. Overlap is convergence.
@@ -95,7 +109,7 @@ value, because an invented value would be exactly the default the tool exists to
   weights have been calibrated on more than a fixture and one production site.
 - **Average taste across users.** See decision 5.
 
-## 13. Known weaknesses, stated on purpose
+## 14. Known weaknesses, stated on purpose
 
 - The eyebrow-label detector over-counts (the source study has the same caveat). Low weight.
 - Automated accessibility covers roughly 30% of WCAG. The report says so.
