@@ -165,7 +165,7 @@ ${judgeBlock}
     <button id="copy-prompt">Copy</button>
     <button id="dl-prompt">Download .md</button>
     <button id="mock-css" title="Re-renders the live page with ONLY the accepted suggestions applied as CSS overrides. Everything you did not accept stays exactly as it is. Vetoed and undecided items are untouched.">Mock up accepted changes</button>
-    <label class="muted" style="font-size:.9rem"><input type="checkbox" id="mock-fullpage"> full page</label>
+    <label class="muted" style="font-size:.9rem" title="By default the mockup shows only the first screen (before scrolling). Tick this to render the whole page top to footer, so changes further down (card rows, section spacing, footer) are visible."><input type="checkbox" id="mock-fullpage"> whole page, not just the first screen</label>
     <button id="mock-full" title="Asks the model (needs ANTHROPIC_API_KEY) to rebuild the whole page from its real content around one idea, honouring every accepted item and never doing anything you vetoed. It does not require accepting everything; undecided items are left to the model's judgement.">Mock up full redesign</button>
     <button id="export">Export decisions (taste profile)</button>
   </div>
