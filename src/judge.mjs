@@ -123,10 +123,30 @@ ${content}
 ## Direction
 ${direction || evaluation.judge?.redesign_direction || 'Find one idea in the subject itself and build the page around it.'}
 
-Produce ONE complete standalone HTML file (inline CSS, no external scripts; Google Fonts <link> allowed) that redesigns this page using its real content. Honour every accepted change and every veto listed above. Return only the HTML.`;
+Produce ONE complete standalone HTML file (inline CSS, no external scripts; Google Fonts <link> allowed) that redesigns this page using its real content. Honour every accepted change and every veto listed above. Keep the CSS compact (no vendor-prefix padding, no comments) so the whole file fits. Return only the HTML, starting with <!doctype html> and ending with </html>, with no markdown fences and no commentary.`;
   log(`redesign: calling ${MODEL}`);
-  const resp = await client.messages.create({ model: MODEL, max_tokens: 16000, messages: [{ role: 'user', content: prompt }] });
-  const text = resp.content.filter(c => c.type === 'text').map(c => c.text).join('');
-  const m = text.match(/<!doctype html>[\s\S]*<\/html>/i) || text.match(/<html[\s\S]*<\/html>/i);
-  return m ? m[0] : text;
+  let text = '';
+  const stream = client.messages.stream({ model: MODEL, max_tokens: 32000, messages: [{ role: 'user', content: prompt }] });
+  for await (const ev of stream) if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') text += ev.delta.text;
+  const final = await stream.finalMessage().catch(() => null);
+  return extractHtml(text, { truncated: final?.stop_reason === 'max_tokens' });
+}
+
+/** Pull a usable HTML document out of model output: strip fences, accept partial output, close it. */
+export function extractHtml(text, { truncated = false } = {}) {
+  let t = String(text || '');
+  t = t.replace(/```[a-z]*\s*/gi, '').replace(/```/g, '');
+  const start = t.search(/<!doctype\s+html|<html[\s>]/i);
+  if (start >= 0) t = t.slice(start);
+  const end = t.toLowerCase().lastIndexOf('</html>');
+  if (end >= 0) t = t.slice(0, end + 7);
+  else {
+    // cut off mid-tag: drop the dangling fragment after the last closing tag and close the document
+    const lastClose = t.lastIndexOf('>');
+    if (lastClose > 0) t = t.slice(0, lastClose + 1);
+    t += '\n</body></html>';
+  }
+  if (truncated) t = t.replace(/<\/body>/i, '<p style="position:fixed;bottom:0;left:0;right:0;background:#9b2c2c;color:#fff;padding:8px 16px;font:14px sans-serif;margin:0;z-index:99999">design-critic: the model hit its output limit, so this redesign is cut short. Ask for a shorter page or a single section.</p></body>');
+  if (!/<html/i.test(t)) t = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>${t}</body></html>`;
+  return t;
 }
