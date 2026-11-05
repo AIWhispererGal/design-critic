@@ -329,6 +329,10 @@ function collectMetrics(opts) {
           if (/focus-visible/.test(rule.selectorText || '')) focusVisibleRules++;
           if (/clamp\(/.test(rule.cssText)) clampUsage++;
         }
+        // Grouping rules that are not media/container queries (@layer, @supports, @scope, nested rules):
+        // Tailwind 4 puts every breakpoint inside @layer utilities, so without this descent a Tailwind 4
+        // site reads as "no responsive CSS, no reduced-motion rule".
+        if (rule.cssRules && rule.cssRules.length) walk(rule.cssRules);
       } };
       walk(rules);
     }
